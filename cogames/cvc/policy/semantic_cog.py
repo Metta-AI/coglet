@@ -11,7 +11,7 @@ from mettagrid_sdk.games.cogsguard import (
 )
 from mettagrid_sdk.sdk import MacroDirective, MettagridState, SemanticEntity
 
-from cvc.memory import MemoryStore
+from typing import Any
 from cvc.policy import helpers as _h
 from cvc.policy.helpers import KnownEntity
 from mettagrid.policy.policy import AgentPolicy, MultiAgentPolicy
@@ -206,7 +206,7 @@ class SemanticCogAgentPolicy(AgentPolicy):
         self._world_model = world_model
         self._shared_claims = shared_claims
         self._shared_junctions = shared_junctions
-        self._memory = MemoryStore()
+        self._events: list[Any] = []
         self._previous_state: MettagridState | None = None
         self._last_global_pos: tuple[int, int] | None = None
         self._last_attempt: MoveAttempt | None = None
@@ -243,12 +243,7 @@ class SemanticCogAgentPolicy(AgentPolicy):
         self._step_index = self._step_index + 1 if state.step is None else state.step
         self._current_target_position = None
         self._current_target_kind = None
-        self._memory.append_semantic_events(
-            state.recent_events,
-            game=state.game,
-            role_context=state.self_state.role,
-            tags=[state.self_state.role or "unknown"],
-        )
+        self._events.extend(state.recent_events)
 
         self._world_model.update(state)
         self._update_shared_junctions(state)
@@ -297,7 +292,7 @@ class SemanticCogAgentPolicy(AgentPolicy):
         return action
 
     def reset(self, simulation=None) -> None:
-        self._memory = MemoryStore()
+        self._events: list[Any] = []
         self._previous_state = None
         self._world_model.reset()
         self._last_global_pos = None

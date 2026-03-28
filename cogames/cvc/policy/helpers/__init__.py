@@ -1,12 +1,9 @@
-"""Pure helper functions for cyborg policy logic.
+"""Helper functions for CvC policy logic.
 
-Organized by concern:
-- types: Constants and data types (KnownEntity, game thresholds)
-- geometry: Distance, direction, pathfinding, exploration offsets
-- resources: Inventory, team state, phase determination
-- targeting: Scoring, claiming, alignment network queries
-- cost_tracking: LLM API token usage aggregation
-- benchmarking: Run comparison and statistical analysis
+- types: Constants, KnownEntity
+- geometry: Distance, direction, pathfinding
+- resources: Inventory, team state, phase
+- targeting: Scoring, claiming, alignment network
 """
 
 from cvc.policy.helpers.geometry import (

@@ -1,12 +1,9 @@
-try:
-    from cvc.policy.anthropic_pilot import AlphaCyborgPolicy, AnthropicCyborgPolicy
-except ImportError:
-    AlphaCyborgPolicy = None  # type: ignore[assignment,misc]
-    AnthropicCyborgPolicy = None  # type: ignore[assignment,misc]
+from cvc.policy.anthropic_pilot import AlphaCyborgPolicy, AlphaCogAgentPolicy
+from cvc.policy.semantic_cog import MettagridSemanticPolicy, SemanticCogAgentPolicy
 
-try:
-    from cvc.policy.openai_pilot import OpenAICyborgPolicy
-except ImportError:
-    OpenAICyborgPolicy = None  # type: ignore[assignment,misc]
-
-__all__ = ["AlphaCyborgPolicy", "AnthropicCyborgPolicy", "OpenAICyborgPolicy"]
+__all__ = [
+    "AlphaCyborgPolicy",
+    "AlphaCogAgentPolicy",
+    "MettagridSemanticPolicy",
+    "SemanticCogAgentPolicy",
+]
