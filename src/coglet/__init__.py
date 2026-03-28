@@ -8,6 +8,8 @@ from coglet.codelet import CodeLet
 from coglet.gitlet import GitLet
 from coglet.loglet import LogLet
 from coglet.mullet import MulLet
+from coglet.suppresslet import SuppressLet
+from coglet.trace import CogletTrace
 
 __all__ = [
     "Coglet", "listen", "enact",
@@ -15,4 +17,5 @@ __all__ = [
     "CogletHandle", "CogletConfig", "Command",
     "CogletRuntime",
     "LifeLet", "TickLet", "every", "CodeLet", "GitLet", "LogLet", "MulLet",
+    "SuppressLet", "CogletTrace",
 ]

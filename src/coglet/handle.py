@@ -17,6 +17,9 @@ class CogletConfig:
     """Describes how to instantiate a Coglet."""
     cls: Type
     kwargs: dict[str, Any] = field(default_factory=dict)
+    restart: str = "never"      # "never" | "on_error" | "always"
+    max_restarts: int = 3
+    backoff_s: float = 1.0
 
 
 class CogletHandle:

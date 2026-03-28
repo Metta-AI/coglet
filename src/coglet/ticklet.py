@@ -67,10 +67,24 @@ class TickLet:
     async def _time_ticker(self, method_name: str, seconds: float) -> None:
         while True:
             await asyncio.sleep(seconds)
-            method = getattr(self, method_name)
-            result = method()
-            if hasattr(result, "__await__"):
-                await result
+            try:
+                method = getattr(self, method_name)
+                result = method()
+                if hasattr(result, "__await__"):
+                    await result
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                await self.on_ticker_error(method_name, e)
+
+    async def on_ticker_error(self, method_name: str, error: Exception) -> None:
+        """Called when a ticker raises. Override to customize.
+
+        Default: log via LogLet if available, otherwise ignore and continue.
+        """
+        from coglet.loglet import LogLet
+        if isinstance(self, LogLet):
+            await self.log("error", f"ticker {method_name} failed: {error}")
 
     async def tick(self) -> None:
         """Call this to advance tick-based @every handlers."""

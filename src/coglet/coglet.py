@@ -90,6 +90,20 @@ class Coglet:
     async def guide(self, handle: CogletHandle, command: Command) -> None:
         await handle.guide(command)
 
+    # --- Supervision hook ---
+
+    async def on_child_error(
+        self, handle: CogletHandle, error: Exception
+    ) -> str:
+        """Called when a child coglet errors. Override to customize.
+
+        Return:
+            "restart" — restart the child (respects CogletConfig limits)
+            "stop"    — stop the child (default)
+            "escalate" — re-raise the error in this coglet
+        """
+        return "stop"
+
     # --- Internal dispatch ---
 
     async def _dispatch_listen(self, channel: str, data: Any) -> None:
