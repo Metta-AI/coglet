@@ -6,3 +6,6 @@ dist/
 build/
 .venv/
 uv.lock
+
+# Coach session data (ephemeral, regenerated each run)
+.coach/sessions/
