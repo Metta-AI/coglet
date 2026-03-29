@@ -1,3 +1,9 @@
+"""LogLet mixin — separate log stream with level filtering.
+
+Logs are transmitted on the "log" channel, independent of application data.
+The COG subscribes via observe(handle, "log") and controls verbosity via
+guide(handle, Command("log_level", "debug")). Levels: debug, info, warn, error.
+"""
 from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING

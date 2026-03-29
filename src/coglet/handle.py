@@ -1,3 +1,10 @@
+"""Data types for coglet child management: Command, CogletConfig, CogletHandle.
+
+CogletHandle is the opaque reference a parent COG holds to a child. It exposes
+only observe() and guide() — the parent never accesses the child directly.
+CogletConfig describes how to instantiate a coglet, including restart policy.
+"""
+
 from __future__ import annotations
 
 import asyncio

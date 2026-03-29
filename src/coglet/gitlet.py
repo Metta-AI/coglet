@@ -1,3 +1,10 @@
+"""GitLet mixin — repo-as-policy for persistent, versioned behavior.
+
+The coglet executes from HEAD. Patches are applied as git commits via
+guide(handle, Command("commit", patch_str)). Rollback is git revert.
+Branching enables parallel policy experiments. No custom serialization —
+the patch protocol is pure git diffs.
+"""
 from __future__ import annotations
 
 import asyncio

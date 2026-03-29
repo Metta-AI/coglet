@@ -1,3 +1,13 @@
+"""Base Coglet class — the universal COG/LET primitive.
+
+Every Coglet has two interfaces:
+  LET (data + control): @listen, @enact, transmit
+  COG (supervision):    create, observe, guide
+
+Handler discovery uses __init_subclass__ to scan the MRO for @listen/@enact
+decorated methods. Both sync and async handlers are supported.
+"""
+
 from __future__ import annotations
 
 from typing import Any, AsyncIterator, Callable

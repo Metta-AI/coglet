@@ -1,3 +1,9 @@
+"""Async pub/sub channel system for coglet communication.
+
+Each Coglet owns a ChannelBus. transmit() pushes data to all subscribers on a
+named channel. Each subscribe() call creates an independent queue — no message
+loss from slow consumers, but subscribers must exist before transmit (no replay).
+"""
 from __future__ import annotations
 
 import asyncio

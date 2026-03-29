@@ -12,8 +12,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```
 src/coglet/     # Framework: Coglet base class + mixins
 cogames/        # CvC player: Coach, PlayerCoglet, PolicyCoglet
+tests/          # 108 unit + integration tests (pytest + pytest-asyncio)
 docs/           # Architecture design docs
 ```
+
+See [AGENTS.md](AGENTS.md) for detailed component reference and patterns.
 
 ## Architecture
 
@@ -34,7 +37,15 @@ A Coglet is both: every COG is itself a LET under a higher COG, forming a recurs
 
 ### Mixins
 
-LifeLet (lifecycle hooks), GitLet (repo-as-policy), LogLet (log stream), TickLet (`@every` periodic), CodeLet (mutable function table), MulLet (fan-out N children).
+LifeLet (lifecycle hooks), GitLet (repo-as-policy), LogLet (log stream), TickLet (`@every` periodic), CodeLet (mutable function table), MulLet (fan-out N children), SuppressLet (output gating).
+
+### Runtime Features
+
+- `CogletRuntime.tree()` — ASCII visualization of the live supervision tree
+- `CogletTrace` — jsonl event recording for post-mortem debugging
+- Restart policy — `CogletConfig(restart="on_error", max_restarts=3, backoff_s=1.0)`
+- `Coglet.on_child_error()` — parent decides restart/stop/escalate on child failure
+- `TickLet.on_ticker_error()` — overridable hook for ticker exceptions
 
 ### CvC Player Stack
 
@@ -43,6 +54,9 @@ Coach (Claude Code) → PlayerCoglet (GitLet) → PolicyCoglet (CodeLet + LLM br
 ### Key Commands
 
 ```bash
+# Run tests
+PYTHONPATH=src python -m pytest tests/ -v
+
 # Play locally
 cogames play -m machina_1 -p class=cvc.cvc_policy.CogletPolicy -c 8 --seed 42
 
@@ -54,8 +68,10 @@ cogames upload -p class=cvc.cvc_policy.CogletPolicy -n coglet-v0 \
 
 ### Docs
 
+- [AGENTS.md](AGENTS.md) — Component reference for AI agents working with this codebase
 - [README.md](README.md) — Project overview and quickstart
 - [docs/coglet.md](docs/coglet.md) — Architecture design (COG/LET primitives)
 - [docs/framework.md](docs/framework.md) — Framework implementation reference
+- [docs/improvements.md](docs/improvements.md) — Architectural improvements and status
 - [docs/tournament.md](docs/tournament.md) — Tournament system design
 - [docs/cvc-player.md](docs/cvc-player.md) — CvC player system (Coach, Player, Policy)

@@ -1,3 +1,12 @@
+"""CogletRuntime — boots and manages a coglet supervision tree on asyncio.
+
+Responsibilities:
+  - spawn/shutdown: lifecycle management with LifeLet/TickLet integration
+  - tree(): ASCII visualization of the live coglet hierarchy
+  - Restart: exponential backoff restart via on_child_error + CogletConfig policy
+  - Tracing: optional jsonl event recording via CogletTrace
+"""
+
 from __future__ import annotations
 
 import asyncio

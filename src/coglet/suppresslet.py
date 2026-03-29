@@ -1,3 +1,10 @@
+"""SuppressLet mixin — COG-controlled output gating (inspired by subsumption architecture).
+
+A COG can suppress specific channels or commands on a LET without stopping it.
+The LET keeps running and processing internally, but suppressed outputs are silenced.
+Must appear before Coglet in MRO: class MyLET(SuppressLet, Coglet): ...
+"""
+
 from __future__ import annotations
 
 from typing import Any

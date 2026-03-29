@@ -1,3 +1,10 @@
+"""TickLet mixin — time-driven and tick-driven periodic execution.
+
+Time-based (@every with "s" or "m") runs as asyncio background tasks.
+Tick-based (@every with "ticks") fires when self.tick() is called manually.
+Ticker errors are caught and routed to on_ticker_error() (overridable).
+"""
+
 from __future__ import annotations
 
 import asyncio

@@ -1,3 +1,9 @@
+"""CodeLet mixin — mutable function table for runtime code hot-swap.
+
+Functions are stored in self.functions dict and can be registered/replaced
+at runtime via guide(handle, Command("register", {"name": callable})).
+No persistence — ephemeral, in-memory only. Use GitLet for persistent policy.
+"""
 from __future__ import annotations
 
 from typing import Any, Callable

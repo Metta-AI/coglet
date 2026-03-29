@@ -1,3 +1,10 @@
+"""MulLet mixin — fan-out N identical children with scatter/gather.
+
+The parent COG creates N children via create_mul() and coordinates them with
+map/reduce semantics. scatter() distributes events via map(), gather() collects
+one result from each child and aggregates via reduce(). Override map()/reduce()
+for custom routing and aggregation.
+"""
 from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING

@@ -1,3 +1,10 @@
+"""CogletTrace — jsonl event recorder for post-mortem debugging of async event flows.
+
+Pass to CogletRuntime(trace=CogletTrace("path.jsonl")) to transparently record
+all transmit() and enact() events with timestamps. Use CogletTrace.load() to
+read traces back for analysis or replay.
+"""
+
 from __future__ import annotations
 
 import json

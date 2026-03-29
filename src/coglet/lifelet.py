@@ -1,3 +1,8 @@
+"""LifeLet mixin — process lifecycle hooks (on_start / on_stop).
+
+Called by CogletRuntime during spawn() and shutdown(). Raising in either
+aborts the transition. Shutdown calls on_stop in reverse spawn order (LIFO).
+"""
 from __future__ import annotations
 
 from typing import Any
