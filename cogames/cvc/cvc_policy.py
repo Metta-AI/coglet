@@ -348,3 +348,7 @@ class CogletPolicy(MultiAgentPolicy):
 
         path = learnings_dir / f"{self._game_id}.json"
         path.write_text(json.dumps(learnings, indent=2, default=str))
+
+
+# PCO-driven variant
+from cvc.table_policy import TablePolicy  # noqa: F401
