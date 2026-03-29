@@ -68,15 +68,26 @@ class AdvocateCoglet(Coglet, LifeLet, ProgLet, LogLet):
     async def on_start(self):
         self.executors["llm"] = LLMExecutor(CLIENT)
 
+        if self.side == "prosecution":
+            role_prompt = (
+                "You are a debate team member assigned the PRO side. "
+                "The motion will be given as the user message. "
+                "Argue that the motion IS TRUE. Present 3-4 strong, "
+                "specific arguments with evidence. Be persuasive and concise."
+            )
+        else:
+            role_prompt = (
+                "You are a debate team member assigned the CON side. "
+                "The motion will be given as the user message. "
+                "Argue that the motion IS FALSE. Present 3-4 strong, "
+                "specific arguments with evidence. Be persuasive and concise."
+            )
+
         self.programs["argue"] = Program(
             executor="llm",
-            system=lambda _ctx: (
-                f"You are the {self.side} advocate in a deliberation. "
-                f"{'Build a compelling case FOR the proposition. Present evidence and reasoning that supports it.' if self.side == 'prosecution' else 'Build a compelling case AGAINST the proposition. Present evidence and reasoning that refutes it.'} "
-                f"Be concise but persuasive. Limit to 3-4 sentences."
-            ),
+            system=lambda _ctx, rp=role_prompt: rp,
             parser=_parse_argument,
-            config={"max_turns": 1, "max_tokens": 300, "temperature": 0.7},
+            config={"max_turns": 1, "max_tokens": 300, "temperature": 0.9},
         )
         await self.log("info", f"{self.side} advocate ready")
 
