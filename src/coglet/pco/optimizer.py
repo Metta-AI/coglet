@@ -128,3 +128,12 @@ class ProximalCogletOptimizer(Coglet, LifeLet):
             "signals": signals,
             "patch": update,
         }
+
+    async def run(self, num_epochs: int) -> list[dict[str, Any]]:
+        """Run multiple epochs, transmitting each result on the 'epoch' channel."""
+        results = []
+        for _ in range(num_epochs):
+            result = await self.run_epoch()
+            await self.transmit("epoch", result)
+            results.append(result)
+        return results

@@ -116,3 +116,37 @@ async def test_pco_retries_on_rejection():
     assert learner._calls == 2
     assert constraint._calls == 2
     await runtime.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_pco_multi_epoch():
+    runtime = CogletRuntime()
+    pco_handle = await runtime.spawn(CogletConfig(
+        cls=ProximalCogletOptimizer,
+        kwargs=dict(
+            actor_config=CogletConfig(cls=FakeActor),
+            critic_config=CogletConfig(cls=FakeCritic),
+            losses=[ScoreLoss()],
+            constraints=[AlwaysAccept()],
+            learner=FakeLearner(),
+        ),
+    ))
+    pco = pco_handle.coglet
+
+    epochs = []
+    async def collect():
+        async for e in pco_handle.observe("epoch"):
+            epochs.append(e)
+            if len(epochs) >= 3:
+                break
+
+    task = asyncio.create_task(collect())
+    await asyncio.sleep(0.01)
+
+    await pco.run(num_epochs=3)
+
+    await asyncio.wait_for(task, timeout=5.0)
+    assert len(epochs) == 3
+    assert all(e["accepted"] for e in epochs)
+    assert pco._actor_handle.coglet.version == 3
+    await runtime.shutdown()
