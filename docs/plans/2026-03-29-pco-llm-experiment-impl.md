@@ -1,6 +1,28 @@
+# PCO LLM Experiment — Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Run a real LLM-powered PCO loop that teaches an actor to solve 15 programming puzzles, with a critic that learns to predict pass/fail, over 5 epochs.
+
+**Architecture:** Single test file using the existing PCO framework (ProximalCogletOptimizer, LossCoglet, ConstraintCoglet, LearnerCoglet). Actor/Critic/Learner are coglets that make Claude Sonnet API calls. Results written to `.tests/pco_experiment/`.
+
+**Tech Stack:** Python 3.11+, coglet PCO, anthropic SDK, pytest + pytest-asyncio
+
+---
+
+### Task 1: Puzzle suite and test harness
+
+Define the 15 puzzles and the test runner that executes solutions.
+
+**Files:**
+- Create: `tests/test_pco_llm_experiment.py`
+
+**Step 1: Write the puzzle definitions and harness**
+
+```python
 """PCO LLM Experiment: actor learns to solve programming puzzles.
 
-Requires ANTHROPIC_API_KEY env var for LLM tests.
+Requires ANTHROPIC_API_KEY env var. Skip if not set.
 Results written to .tests/pco_experiment/
 """
 
@@ -8,19 +30,23 @@ import asyncio
 import json
 import os
 import textwrap
+import traceback
 from pathlib import Path
 from typing import Any
-
-import anthropic
 
 import pytest
 
 from coglet import Coglet, CogletConfig, CogletRuntime, enact, listen
-from coglet.handle import Command
 from coglet.pco.constraint import ConstraintCoglet
 from coglet.pco.learner import LearnerCoglet
 from coglet.pco.loss import LossCoglet
 from coglet.pco.optimizer import ProximalCogletOptimizer
+
+# Skip entire module if no API key
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("ANTHROPIC_API_KEY"),
+    reason="ANTHROPIC_API_KEY not set",
+)
 
 RESULTS_DIR = Path(".tests/pco_experiment")
 
@@ -151,7 +177,7 @@ PUZZLES = [
                 ".6....28.",
                 "...419..5",
                 "....8..79",
-            ], False),
+            ], False),  # duplicate 8 in col 0
         ],
     },
 ]
@@ -184,11 +210,12 @@ def run_solution(puzzle: dict, code: str) -> dict:
 
     passed_tests = 0
     first_error = None
-    for test_case in puzzle["tests"]:
-        *inputs, expected = test_case
-        test_input = inputs[0] if len(inputs) == 1 else tuple(inputs)
+    for test_input, expected in puzzle["tests"]:
         try:
-            result = fn(*inputs) if len(inputs) > 1 else fn(inputs[0])
+            if isinstance(test_input, tuple):
+                result = fn(*test_input)
+            else:
+                result = fn(test_input)
             if result == expected:
                 passed_tests += 1
             elif first_error is None:
@@ -204,20 +231,69 @@ def run_solution(puzzle: dict, code: str) -> dict:
         "passed_tests": passed_tests,
         "error": first_error,
     }
+```
+
+**Step 2: Write a quick sanity test for the harness**
+
+```python
+def test_harness_runs_correct_solution():
+    """Verify run_solution works with a known-good solution."""
+    puzzle = PUZZLES[0]  # fizzbuzz
+    code = textwrap.dedent("""\
+        def fizzbuzz(n):
+            if n % 15 == 0: return "FizzBuzz"
+            if n % 3 == 0: return "Fizz"
+            if n % 5 == 0: return "Buzz"
+            return str(n)
+    """)
+    result = run_solution(puzzle, code)
+    assert result["passed"] is True
+    assert result["passed_tests"] == len(puzzle["tests"])
 
 
-# ── LLM helpers ──────────────────────────────────────
+def test_harness_catches_bad_solution():
+    """Verify run_solution catches errors."""
+    puzzle = PUZZLES[0]
+    result = run_solution(puzzle, "def fizzbuzz(n): return str(n)")
+    assert result["passed"] is False
+    assert result["error"] is not None
+```
 
-_HAS_API_KEY = bool(os.environ.get("ANTHROPIC_API_KEY"))
+**Step 3: Run tests**
+
+Run: `PYTHONPATH=src python -m pytest tests/test_pco_llm_experiment.py::test_harness_runs_correct_solution tests/test_pco_llm_experiment.py::test_harness_catches_bad_solution -v`
+Expected: PASS (these don't need API key)
+
+**Step 4: Commit**
+
+```bash
+git add tests/test_pco_llm_experiment.py .gitignore
+git commit -m "feat: puzzle suite and test harness for PCO LLM experiment"
+```
+
+---
+
+### Task 2: LLM helper and Actor coglet
+
+Create the Anthropic client helper and the CodeGenActor.
+
+**Files:**
+- Modify: `tests/test_pco_llm_experiment.py`
+
+**Step 1: Add LLM helper and actor**
+
+```python
+import anthropic
 
 
 def llm_call(prompt: str, *, system: str = "", max_tokens: int = 4096) -> str:
-    """Single Claude Sonnet call."""
+    """Single Claude Sonnet call. Returns text response."""
     client = anthropic.Anthropic()
+    messages = [{"role": "user", "content": prompt}]
     kwargs: dict[str, Any] = dict(
         model="claude-sonnet-4-20250514",
         max_tokens=max_tokens,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
     )
     if system:
         kwargs["system"] = system
@@ -227,6 +303,7 @@ def llm_call(prompt: str, *, system: str = "", max_tokens: int = 4096) -> str:
 
 def extract_json(text: str) -> Any:
     """Extract JSON from LLM response, handling markdown code blocks."""
+    # Try direct parse first
     text = text.strip()
     if text.startswith("```"):
         lines = text.split("\n")
@@ -235,11 +312,12 @@ def extract_json(text: str) -> Any:
     return json.loads(text)
 
 
-# ── Coglets ──────────────────────────────────────────
-
-
 class CodeGenActor(Coglet):
-    """Actor that holds Python solutions to puzzles."""
+    """Actor that holds Python solutions to puzzles.
+
+    enact("run"): execute solutions against tests, transmit experience.
+    enact("update"): replace solutions from learner patch.
+    """
 
     def __init__(self, *, puzzles: list[dict], **kwargs):
         super().__init__(**kwargs)
@@ -263,6 +341,7 @@ class CodeGenActor(Coglet):
         await self.transmit("experience", {"results": results})
 
     def _initialize_solutions(self):
+        """Generate initial solutions via one LLM call."""
         puzzle_specs = []
         for p in self.puzzles:
             puzzle_specs.append(f"### {p['name']}\n{p['description']}\n```python\n{p['signature']}\n```")
@@ -282,8 +361,60 @@ class CodeGenActor(Coglet):
     async def apply_update(self, patch):
         new_solutions = patch.get("solutions", {})
         self.solutions.update(new_solutions)
+```
 
+**Step 2: Add a test that creates actor and runs one rollout (requires API key)**
 
+```python
+@pytest.mark.asyncio
+async def test_actor_generates_and_runs():
+    """Actor generates solutions and runs them. Some should pass."""
+    runtime = CogletRuntime()
+    handle = await runtime.spawn(CogletConfig(
+        cls=CodeGenActor, kwargs=dict(puzzles=PUZZLES[:3]),  # just easy ones
+    ))
+    actor = handle.coglet
+
+    results = []
+    async def collect():
+        async for exp in handle.observe("experience"):
+            results.append(exp)
+            break
+
+    task = asyncio.create_task(collect())
+    await asyncio.sleep(0.01)
+    await actor._dispatch_enact(type("Cmd", (), {"type": "run", "data": None})())
+    await asyncio.wait_for(task, timeout=60.0)
+
+    assert len(results[0]["results"]) == 3
+    # At least 1 easy puzzle should pass on first try
+    passed = sum(1 for r in results[0]["results"] if r["passed"])
+    print(f"Actor initial pass rate (easy): {passed}/3")
+    await runtime.shutdown()
+```
+
+**Step 3: Run (only if API key set)**
+
+Run: `ANTHROPIC_API_KEY=... PYTHONPATH=src python -m pytest tests/test_pco_llm_experiment.py::test_actor_generates_and_runs -v -s`
+Expected: PASS, prints pass rate
+
+**Step 4: Commit**
+
+```bash
+git add tests/test_pco_llm_experiment.py
+git commit -m "feat: CodeGenActor with LLM-generated solutions"
+```
+
+---
+
+### Task 3: Critic coglet
+
+**Files:**
+- Modify: `tests/test_pco_llm_experiment.py`
+
+**Step 1: Add critic**
+
+```python
 class CodeReviewCritic(Coglet):
     """Critic that predicts pass/fail for each solution."""
 
@@ -295,13 +426,11 @@ class CodeReviewCritic(Coglet):
     @listen("experience")
     async def evaluate(self, experience):
         results = experience["results"]
+
+        # Build prompt: show solutions, ask for predictions
         solution_texts = []
         for r in results:
-            p = next((p for p in self.puzzles if p["name"] == r["name"]), None)
-            desc = p["description"] if p else ""
-            solution_texts.append(
-                f"### {r['name']}\nDescription: {desc}\n```python\n{r['code']}\n```"
-            )
+            solution_texts.append(f"### {r['name']}\n```python\n{r['code']}\n```")
 
         prompt = (
             f"Your evaluation strategy: {self.strategy}\n\n"
@@ -317,9 +446,10 @@ class CodeReviewCritic(Coglet):
         except (json.JSONDecodeError, ValueError):
             predictions = {}
 
+        # Compare predictions to actuals
         evaluation = []
         for r in results:
-            predicted = predictions.get(r["name"], "fail").lower().strip()
+            predicted = predictions.get(r["name"], "fail").lower()
             actual = "pass" if r["passed"] else "fail"
             evaluation.append({
                 "name": r["name"],
@@ -337,11 +467,25 @@ class CodeReviewCritic(Coglet):
         new_strategy = patch.get("critic_strategy")
         if new_strategy:
             self.strategy = new_strategy
+```
 
+**Step 2: Commit**
 
-# ── Losses ───────────────────────────────────────────
+```bash
+git add tests/test_pco_llm_experiment.py
+git commit -m "feat: CodeReviewCritic with LLM predictions"
+```
 
+---
 
+### Task 4: Losses, constraint, and learner
+
+**Files:**
+- Modify: `tests/test_pco_llm_experiment.py`
+
+**Step 1: Add losses**
+
+```python
 class ActorLoss(LossCoglet):
     async def compute_loss(self, experience, evaluation):
         results = experience["results"]
@@ -364,26 +508,28 @@ class CriticLoss(LossCoglet):
             "total": len(preds),
             "wrong_predictions": wrong,
         }
+```
 
+**Step 2: Add constraint**
 
-# ── Constraint ───────────────────────────────────────
-
-
+```python
 class MaxRewritesConstraint(ConstraintCoglet):
+    """Reject if learner rewrites more than 5 solutions at once."""
     async def check(self, patch):
         n = len(patch.get("solutions", {}))
         if n > 5:
             return {"accepted": False, "reason": f"too many rewrites: {n} (max 5)"}
         return {"accepted": True}
+```
 
+**Step 3: Add learner**
 
-# ── Learner ──────────────────────────────────────────
-
-
+```python
 class CodeGenLearner(LearnerCoglet):
     """Learner that rewrites failing solutions and updates critic strategy."""
 
     async def learn(self, experience, evaluation, signals):
+        # Gather failing puzzles from actor loss signal
         actor_signal = next((s for s in signals if s.get("name") == "actor_loss"), None)
         critic_signal = next((s for s in signals if s.get("name") == "critic_loss"), None)
 
@@ -443,33 +589,25 @@ class CodeGenLearner(LearnerCoglet):
             "solutions": new_solutions,
             "critic_strategy": new_critic_strategy,
         }
+```
 
+**Step 4: Commit**
 
-# ── Sanity tests (no API key needed) ──────────────────
+```bash
+git add tests/test_pco_llm_experiment.py
+git commit -m "feat: losses, constraint, and LLM learner for PCO experiment"
+```
 
+---
 
-def test_harness_runs_correct_solution():
-    puzzle = PUZZLES[0]  # fizzbuzz
-    code = textwrap.dedent("""\
-        def fizzbuzz(n):
-            if n % 15 == 0: return "FizzBuzz"
-            if n % 3 == 0: return "Fizz"
-            if n % 5 == 0: return "Buzz"
-            return str(n)
-    """)
-    result = run_solution(puzzle, code)
-    assert result["passed"] is True
-    assert result["passed_tests"] == len(puzzle["tests"])
+### Task 5: Full experiment runner
 
+**Files:**
+- Modify: `tests/test_pco_llm_experiment.py`
 
-def test_harness_catches_bad_solution():
-    puzzle = PUZZLES[0]
-    result = run_solution(puzzle, "def fizzbuzz(n): return str(n)")
-    assert result["passed"] is False
-    assert result["error"] is not None
+**Step 1: Add the main experiment test**
 
-
-@pytest.mark.skipif(not _HAS_API_KEY, reason="ANTHROPIC_API_KEY not set")
+```python
 @pytest.mark.asyncio
 async def test_pco_llm_experiment():
     """Full PCO experiment: 5 epochs of LLM-driven code improvement."""
@@ -492,13 +630,10 @@ async def test_pco_llm_experiment():
     num_epochs = 5
     metrics = []
 
-    print("\n  ┌───────┬──────────────────┬──────────────────┬──────────┐")
-    print("  │ Epoch │ Actor Pass Rate  │ Critic Accuracy  │ Accepted │")
-    print("  ├───────┼──────────────────┼──────────────────┼──────────┤")
-
     for epoch in range(num_epochs):
         result = await pco.run_epoch(timeout=120.0)
 
+        # Extract metrics
         actor_signal = next((s for s in result["signals"] if s["name"] == "actor_loss"), {})
         critic_signal = next((s for s in result["signals"] if s["name"] == "critic_loss"), {})
 
@@ -517,22 +652,24 @@ async def test_pco_llm_experiment():
         }
         metrics.append(epoch_metrics)
 
+        # Print table row
         print(
-            f"  │   {epoch + 1}   │   {actor_pass:2d}/{total} ({epoch_metrics['actor_pass_rate']:5.0%})   "
-            f"│   {critic_correct:2d}/{total} ({epoch_metrics['critic_accuracy']:5.0%})   "
-            f"│ {'  yes   ' if result['accepted'] else '  no    '} │"
+            f"  Epoch {epoch + 1}: "
+            f"actor={actor_pass}/{total} ({epoch_metrics['actor_pass_rate']:.0%})  "
+            f"critic={critic_correct}/{total} ({epoch_metrics['critic_accuracy']:.0%})  "
+            f"accepted={result['accepted']}"
         )
-
-    print("  └───────┴──────────────────┴──────────────────┴──────────┘")
 
     # Write results
     (RESULTS_DIR / "metrics.json").write_text(json.dumps(metrics, indent=2))
 
+    # Save final solutions
     actor = pco._actor_handle.coglet
     (RESULTS_DIR / "final_solutions.json").write_text(
         json.dumps(actor.solutions, indent=2)
     )
 
+    # Save final critic strategy
     critic = pco._critic_handle.coglet
     (RESULTS_DIR / "final_critic_strategy.txt").write_text(critic.strategy)
 
@@ -542,16 +679,23 @@ async def test_pco_llm_experiment():
     first = metrics[0]
     last = metrics[-1]
 
-    print(f"\n  Actor improvement:  {first['actor_pass_rate']:.0%} → {last['actor_pass_rate']:.0%}")
-    print(f"  Critic improvement: {first['critic_accuracy']:.0%} → {last['critic_accuracy']:.0%}")
+    print(f"\n  Improvement: actor {first['actor_pass_rate']:.0%} → {last['actor_pass_rate']:.0%}")
+    print(f"  Improvement: critic {first['critic_accuracy']:.0%} → {last['critic_accuracy']:.0%}")
 
-    assert last["actor_pass_rate"] >= first["actor_pass_rate"], \
-        f"Actor should not regress: {first['actor_pass_rate']:.0%} → {last['actor_pass_rate']:.0%}"
+    assert last["actor_pass_rate"] > first["actor_pass_rate"], \
+        f"Actor should improve: {first['actor_pass_rate']:.0%} → {last['actor_pass_rate']:.0%}"
     assert last["actor_pass_rate"] >= 10 / 15, \
         f"Actor should solve at least 10/15: got {last['actor_passed']}/15"
+```
 
-    # If actor starts perfect, at least verify critic learns
-    if first["actor_pass_rate"] == 1.0:
-        best_critic = max(m["critic_accuracy"] for m in metrics)
-        assert best_critic >= 0.6, \
-            f"Critic should reach at least 60% accuracy: best was {best_critic:.0%}"
+**Step 2: Run the full experiment**
+
+Run: `ANTHROPIC_API_KEY=... PYTHONPATH=src python -m pytest tests/test_pco_llm_experiment.py::test_pco_llm_experiment -v -s --timeout=600`
+Expected: PASS, prints epoch table, writes results to `.tests/pco_experiment/`
+
+**Step 3: Commit**
+
+```bash
+git add tests/test_pco_llm_experiment.py docs/plans/2026-03-29-pco-llm-experiment-impl.md docs/plans/2026-03-29-pco-llm-experiment.md
+git commit -m "feat: full PCO LLM experiment — 15 puzzles, 5 epochs"
+```
