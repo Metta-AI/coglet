@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from cvc.policy.helpers.geometry import manhattan
-from cvc.policy.helpers.types import (
+from cvc.agent.helpers.geometry import manhattan
+from cvc.agent.helpers.types import (
     _CLAIMED_TARGET_PENALTY,
     _EXTRACTOR_MEMORY_STEPS,
     _HUB_ALIGN_DISTANCE,

@@ -3,6 +3,10 @@ name = "coglet"
 version = "0.1.0"
 description = "Fractal asynchronous control for distributed agent systems"
 requires-python = ">=3.11"
+dependencies = [
+    "mettagrid",
+    "pydantic",
+]
 
 [build-system]
 requires = ["hatchling"]

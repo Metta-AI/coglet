@@ -1,185 +1,113 @@
-"""CvC PolicyCoglet: CodeLet with LLM brain + Python fast policy.
+"""CvC PolicyCoglet: StatefulPolicyImpl with per-agent LLM brain.
 
-Submitted to cogames as a MultiAgentPolicy. Each episode:
-1. Python heuristic (CogletAgentPolicy) handles every step — fast path
-2. LLM brain analyzes game state ~20 times per episode — slow path
-3. On episode end, writes learnings/experience to disk for Coach to read
+Each agent is fully independent — NO shared state between agents.
+State is managed via CogletAgentState dataclass.
 
-Coach (Claude Code) reads learnings across games and commits improvements.
+Architecture:
+  CogletPolicy (MultiAgentPolicy)
+    └─ StatefulAgentPolicy[CogletAgentState]  (one per agent)
+         └─ CogletPolicyImpl (StatefulPolicyImpl)
+              └─ CogletAgentPolicy (heuristic engine)
+              └─ LLM brain (periodic Claude calls for resource_bias)
+              └─ Snapshot logging (periodic game state capture)
 """
 from __future__ import annotations
 
 import json
 import os
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from cvc.policy.anthropic_pilot import CogletBasePolicy, CogletAgentPolicy
-from cvc.policy.semantic_cog import SharedWorldModel
-from mettagrid.policy.policy import AgentPolicy
+from cvc.agent.coglet_policy import CogletAgentPolicy
+from cvc.agent.world_model import WorldModel
+from mettagrid.policy.policy import MultiAgentPolicy, StatefulAgentPolicy, StatefulPolicyImpl
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
+from mettagrid.simulator import Action
+from mettagrid.simulator.interface import AgentObservation
 
 _ELEMENTS = ("carbon", "oxygen", "germanium", "silicon")
-_LLM_INTERVAL = 500  # call LLM every N steps (10000/500 = 20 per episode)
+_LLM_INTERVAL = 500
+_LOG_INTERVAL = 500
 _LEARNINGS_DIR = os.environ.get("COGLET_LEARNINGS_DIR", "/tmp/coglet_learnings")
 
 
-def _build_game_summary(agents: dict[int, CogletAgentPolicy]) -> dict[str, Any]:
-    """Collect end-of-game summary from all agents."""
-    summary: dict[str, Any] = {"agents": {}}
-    for aid, agent in agents.items():
-        agent_info: dict[str, Any] = {
-            "steps": agent._step_index,
-        }
-        if agent._infos:
-            agent_info["last_infos"] = dict(agent._infos)
-        summary["agents"][aid] = agent_info
-    return summary
+@dataclass
+class CogletAgentState:
+    """All mutable state for one agent."""
+    engine: CogletAgentPolicy | None = None
+    last_llm_step: int = 0
+    llm_interval: int = _LLM_INTERVAL
+    llm_latencies: list[float] = field(default_factory=list)
+    resource_bias_from_llm: str | None = None
+    llm_log: list[dict[str, Any]] = field(default_factory=list)
+    snapshot_log: list[dict[str, Any]] = field(default_factory=list)
+    last_snapshot_step: int = 0
 
 
-class CogletPolicy(CogletBasePolicy):
-    """PolicyCoglet: Python heuristic + LLM brain.
-
-    Fast path: CogletAgentPolicy handles every step.
-    Slow path: LLM guides strategy ~20 times per episode.
-    End: writes learnings for Coach.
-    """
-    short_names = ["coglet", "coglet-policy"]
-    minimum_action_timeout_ms = 30_000
-
-    def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu", **kwargs: Any):
-        super().__init__(policy_env_info, device=device, **kwargs)
-        self._llm_client = None
-        self._llm_log: list[dict[str, Any]] = []
-        self._shared_directive: dict[str, Any] = {}
-        self._episode_start = time.time()
-        self._game_id = kwargs.get("game_id", f"game_{int(time.time())}")
-        self._init_llm()
-
-    def _init_llm(self) -> None:
-        """Initialize Anthropic client if API key is available."""
-        api_key = os.environ.get("COGORA_ANTHROPIC_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            return
-        try:
-            import anthropic
-            self._llm_client = anthropic.Anthropic(api_key=api_key)
-        except ImportError:
-            pass
-
-    def agent_policy(self, agent_id: int) -> AgentPolicy:
-        if agent_id not in self._agent_policies:
-            self._agent_policies[agent_id] = CogletBrainAgentPolicy(
-                self.policy_env_info,
-                agent_id=agent_id,
-                world_model=SharedWorldModel(),
-                shared_claims=self._shared_claims,
-                shared_junctions=self._shared_junctions,
-                llm_client=self._llm_client,
-                llm_log=self._llm_log,
-                shared_directive=self._shared_directive,
-            )
-        return self._agent_policies[agent_id]
-
-    def reset(self) -> None:
-        # Write learnings before reset (end of episode)
-        if self._agent_policies:
-            self._write_learnings()
-        self._llm_log.clear()
-        self._shared_directive.clear()
-        self._episode_start = time.time()
-        super().reset()
-
-    def _write_learnings(self) -> None:
-        """Write episode learnings/experience to disk for Coach."""
-        learnings_dir = Path(_LEARNINGS_DIR)
-        learnings_dir.mkdir(parents=True, exist_ok=True)
-
-        game_summary = _build_game_summary(self._agent_policies)
-        learnings = {
-            "game_id": self._game_id,
-            "duration_s": round(time.time() - self._episode_start, 1),
-            "summary": game_summary,
-            "llm_log": self._llm_log,
-        }
-
-        path = learnings_dir / f"{self._game_id}.json"
-        path.write_text(json.dumps(learnings, indent=2, default=str))
-
-
-class CogletBrainAgentPolicy(CogletAgentPolicy):
-    """Agent policy with LLM brain that guides strategy mid-game.
-
-    Every _LLM_INTERVAL steps, calls Claude to analyze game state and
-    produce a MacroDirective that steers all agents' strategy.
-    """
+class CogletPolicyImpl(StatefulPolicyImpl[CogletAgentState]):
+    """Per-agent decision logic. Fully independent — no shared state."""
 
     def __init__(
         self,
         policy_env_info: PolicyEnvInterface,
-        *,
         agent_id: int,
-        world_model: SharedWorldModel,
-        shared_claims: dict,
-        shared_junctions: dict,
         llm_client: Any = None,
-        llm_log: list | None = None,
-        shared_directive: dict | None = None,
+        game_id: str = "",
     ) -> None:
-        super().__init__(
-            policy_env_info,
-            agent_id=agent_id,
-            world_model=world_model,
-            shared_claims=shared_claims,
-            shared_junctions=shared_junctions,
+        self._policy_env_info = policy_env_info
+        self._agent_id = agent_id
+        self._llm_client = llm_client
+        self._game_id = game_id
+
+    def initial_agent_state(self) -> CogletAgentState:
+        engine = CogletAgentPolicy(
+            self._policy_env_info,
+            agent_id=self._agent_id,
+            world_model=WorldModel(),
         )
-        self._llm = llm_client
-        self._llm_log = llm_log if llm_log is not None else []
-        self._last_llm_step = 0
-        self._llm_interval = _LLM_INTERVAL
-        self._llm_latencies: list[float] = []
-        self._shared_directive = shared_directive if shared_directive is not None else {}
+        return CogletAgentState(engine=engine)
 
-    def _macro_directive(self, state: Any) -> Any:
-        """Return LLM-guided directive if available, else default."""
-        from mettagrid_sdk.sdk import MacroDirective
-        d = self._shared_directive
-        if d and d.get("resource_bias"):
-            return MacroDirective(resource_bias=d["resource_bias"])
-        return super()._macro_directive(state)
+    def step_with_state(
+        self, obs: AgentObservation, state: CogletAgentState
+    ) -> tuple[Action, CogletAgentState]:
+        engine = state.engine
+        assert engine is not None
 
-    def step(self, obs: Any) -> Any:
-        action = super().step(obs)
+        engine._llm_resource_bias = state.resource_bias_from_llm
+        action = engine.step(obs)
+        step = engine._step_index
 
-        # LLM brain: analyze adaptively (agent 0 only to avoid redundancy)
         if (
-            self._llm is not None
-            and self._agent_id == 0
-            and self._step_index - self._last_llm_step >= self._llm_interval
+            self._llm_client is not None
+            and step - state.last_llm_step >= state.llm_interval
         ):
-            self._last_llm_step = self._step_index
-            self._llm_analyze()
-            self._adapt_interval()
+            state.last_llm_step = step
+            self._llm_analyze(engine, state)
+            self._adapt_interval(state)
 
-        return action
+        if step - state.last_snapshot_step >= _LOG_INTERVAL:
+            state.last_snapshot_step = step
+            self._log_snapshot(engine, state)
 
-    def _llm_analyze(self) -> None:
-        """Call Claude to analyze game state and produce a strategy directive."""
+        return action, state
+
+    def _llm_analyze(self, engine: CogletAgentPolicy, state: CogletAgentState) -> None:
         try:
-            state = self._previous_state
-            if state is None:
+            game_state = engine._previous_state
+            if game_state is None:
                 return
 
-            inv = state.self_state.inventory
-            team = state.team_summary
+            inv = game_state.self_state.inventory
+            team = game_state.team_summary
             resources = {}
             if team:
                 resources = {r: int(team.shared_inventory.get(r, 0)) for r in _ELEMENTS}
 
             lines = [
-                f"CvC game step {self._step_index}/10000. 88x88 map, 8 agents vs clips.",
-                f"HP: {inv.get('hp', 0)}, Hearts: {inv.get('heart', 0)}",
+                f"CvC game step {engine._step_index}/10000. 88x88 map, 8 agents per team.",
+                f"Agent {self._agent_id}: HP={inv.get('hp', 0)}, Hearts={inv.get('heart', 0)}",
                 f"Gear: aligner={inv.get('aligner', 0)} scrambler={inv.get('scrambler', 0)} miner={inv.get('miner', 0)}",
                 f"Hub resources: {resources}",
             ]
@@ -189,10 +117,10 @@ class CogletBrainAgentPolicy(CogletAgentPolicy):
                     roles[m.role] = roles.get(m.role, 0) + 1
                 lines.append(f"Team roles: {roles}")
 
-            # Get junction count
-            friendly_j = len([e for e in state.visible_entities if e.entity_type == "junction" and e.attributes.get("owner") == (team.team_id if team else "")])
-            enemy_j = len([e for e in state.visible_entities if e.entity_type == "junction" and e.attributes.get("owner") not in {None, "neutral", (team.team_id if team else "")}])
-            neutral_j = len([e for e in state.visible_entities if e.entity_type == "junction" and e.attributes.get("owner") in {None, "neutral"}])
+            team_id = team.team_id if team else ""
+            friendly_j = sum(1 for e in game_state.visible_entities if e.entity_type == "junction" and e.attributes.get("owner") == team_id)
+            enemy_j = sum(1 for e in game_state.visible_entities if e.entity_type == "junction" and e.attributes.get("owner") not in {None, "neutral", team_id})
+            neutral_j = sum(1 for e in game_state.visible_entities if e.entity_type == "junction" and e.attributes.get("owner") in {None, "neutral"})
             lines.append(f"Visible junctions: friendly={friendly_j} enemy={enemy_j} neutral={neutral_j}")
 
             lines.append(
@@ -203,7 +131,7 @@ class CogletBrainAgentPolicy(CogletAgentPolicy):
             )
 
             t0 = time.perf_counter()
-            response = self._llm.messages.create(
+            response = self._llm_client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=150,
                 temperature=0.2,
@@ -217,47 +145,167 @@ class CogletBrainAgentPolicy(CogletAgentPolicy):
                     text = block.text
                     break
 
-            # Parse JSON directive
-            import json as _json
+            analysis = text[:100]
             try:
-                directive = _json.loads(text)
+                directive = json.loads(text)
                 if isinstance(directive, dict):
                     if directive.get("resource_bias") in _ELEMENTS:
-                        self._shared_directive["resource_bias"] = directive["resource_bias"]
+                        state.resource_bias_from_llm = directive["resource_bias"]
                     analysis = directive.get("analysis", text[:100])
-                else:
-                    analysis = text[:100]
-            except (_json.JSONDecodeError, ValueError):
-                analysis = text[:100]
+            except (json.JSONDecodeError, ValueError):
+                pass
 
-            self._llm_latencies.append(latency_ms)
-            entry = {
-                "step": self._step_index,
+            state.llm_latencies.append(latency_ms)
+            state.llm_log.append({
+                "step": engine._step_index,
+                "agent": self._agent_id,
                 "latency_ms": round(latency_ms),
-                "interval": self._llm_interval,
+                "interval": state.llm_interval,
                 "analysis": analysis,
                 "resources": resources,
-                "directive": dict(self._shared_directive),
-            }
-            self._llm_log.append(entry)
+                "resource_bias": state.resource_bias_from_llm,
+            })
             print(
-                f"[coglet] step={self._step_index} llm={latency_ms:.0f}ms "
-                f"interval={self._llm_interval}: {analysis[:100]}",
+                f"[coglet] a{self._agent_id} step={engine._step_index} llm={latency_ms:.0f}ms "
+                f"interval={state.llm_interval}: {analysis[:100]}",
                 flush=True,
             )
 
         except Exception as e:
-            self._llm_log.append({
-                "step": self._step_index,
+            state.llm_log.append({
+                "step": engine._step_index,
+                "agent": self._agent_id,
                 "error": str(e),
             })
 
-    def _adapt_interval(self) -> None:
-        """Adjust LLM call frequency based on measured latency."""
-        if not self._llm_latencies:
+    def _adapt_interval(self, state: CogletAgentState) -> None:
+        if not state.llm_latencies:
             return
-        avg_ms = sum(self._llm_latencies[-5:]) / min(len(self._llm_latencies), 5)
+        recent = state.llm_latencies[-5:]
+        avg_ms = sum(recent) / len(recent)
         if avg_ms < 2000:
-            self._llm_interval = max(200, self._llm_interval - 50)
+            state.llm_interval = max(200, state.llm_interval - 50)
         elif avg_ms > 5000:
-            self._llm_interval = min(1000, self._llm_interval + 100)
+            state.llm_interval = min(1000, state.llm_interval + 100)
+
+    def _log_snapshot(self, engine: CogletAgentPolicy, state: CogletAgentState) -> None:
+        game_state = engine._previous_state
+        if game_state is None:
+            return
+
+        inv = game_state.self_state.inventory
+        team = game_state.team_summary
+        resources = {}
+        junctions = {"friendly": 0, "enemy": 0, "neutral": 0}
+        if team:
+            resources = {r: int(team.shared_inventory.get(r, 0)) for r in _ELEMENTS}
+            team_id = team.team_id
+            for e in game_state.visible_entities:
+                if e.entity_type != "junction":
+                    continue
+                owner = e.attributes.get("owner")
+                if owner == team_id:
+                    junctions["friendly"] += 1
+                elif owner in {None, "neutral"}:
+                    junctions["neutral"] += 1
+                else:
+                    junctions["enemy"] += 1
+
+        infos = engine._infos or {}
+        snap = {
+            "step": engine._step_index,
+            "agent": self._agent_id,
+            "role": infos.get("role", ""),
+            "subtask": infos.get("subtask", ""),
+            "hp": int(inv.get("hp", 0)),
+            "hearts": int(inv.get("heart", 0)),
+            "resources": resources,
+            "junctions": junctions,
+            "resource_bias": state.resource_bias_from_llm or infos.get("directive_resource_bias", ""),
+        }
+        state.snapshot_log.append(snap)
+
+        res_str = " ".join(f"{k[0].upper()}={v}" for k, v in sorted(resources.items()))
+        j_str = f"f={junctions['friendly']} e={junctions['enemy']} n={junctions['neutral']}"
+        print(
+            f"[coglet:snap] a{self._agent_id} step={engine._step_index} "
+            f"role={snap['role']} hp={snap['hp']} hearts={snap['hearts']} | "
+            f"{res_str} | junc: {j_str} | {snap['subtask']}",
+            flush=True,
+        )
+
+
+class CogletPolicy(MultiAgentPolicy):
+    """Top-level CvC policy. Each agent is fully independent."""
+
+    short_names = ["coglet", "coglet-policy"]
+    minimum_action_timeout_ms = 30_000
+
+    def __init__(self, policy_env_info: PolicyEnvInterface, device: str = "cpu", **kwargs: Any):
+        super().__init__(policy_env_info, device=device, **kwargs)
+        self._agent_policies: dict[int, StatefulAgentPolicy[CogletAgentState]] = {}
+        self._llm_client = None
+        self._episode_start = time.time()
+        self._game_id = kwargs.get("game_id", f"game_{int(time.time())}")
+        self._init_llm()
+
+    def _init_llm(self) -> None:
+        api_key = os.environ.get("COGORA_ANTHROPIC_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            return
+        try:
+            import anthropic
+            self._llm_client = anthropic.Anthropic(api_key=api_key)
+        except ImportError:
+            pass
+
+    def agent_policy(self, agent_id: int) -> StatefulAgentPolicy[CogletAgentState]:
+        if agent_id not in self._agent_policies:
+            impl = CogletPolicyImpl(
+                self._policy_env_info,
+                agent_id=agent_id,
+                llm_client=self._llm_client,
+                game_id=self._game_id,
+            )
+            self._agent_policies[agent_id] = StatefulAgentPolicy(
+                impl, self._policy_env_info, agent_id=agent_id,
+            )
+        return self._agent_policies[agent_id]
+
+    def reset(self) -> None:
+        if self._agent_policies:
+            self._write_learnings()
+        self._episode_start = time.time()
+        for policy in self._agent_policies.values():
+            policy.reset()
+
+    def _write_learnings(self) -> None:
+        learnings_dir = Path(_LEARNINGS_DIR)
+        learnings_dir.mkdir(parents=True, exist_ok=True)
+
+        agents_data: dict[str, Any] = {}
+        all_llm_logs: list[dict] = []
+        all_snapshots: list[dict] = []
+
+        for aid, wrapper in self._agent_policies.items():
+            state: CogletAgentState | None = getattr(wrapper, "_state", None)
+            if state is None:
+                continue
+            engine = state.engine
+            agents_data[str(aid)] = {
+                "steps": engine._step_index if engine else 0,
+                "last_infos": dict(engine._infos) if engine and engine._infos else {},
+            }
+            all_llm_logs.extend(state.llm_log)
+            all_snapshots.extend(state.snapshot_log)
+
+        learnings = {
+            "game_id": self._game_id,
+            "duration_s": round(time.time() - self._episode_start, 1),
+            "agents": agents_data,
+            "llm_log": sorted(all_llm_logs, key=lambda x: (x.get("step", 0), x.get("agent", 0))),
+            "snapshots": sorted(all_snapshots, key=lambda x: (x.get("step", 0), x.get("agent", 0))),
+        }
+
+        path = learnings_dir / f"{self._game_id}.json"
+        path.write_text(json.dumps(learnings, indent=2, default=str))

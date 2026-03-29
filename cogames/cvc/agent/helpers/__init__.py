@@ -1,12 +1,6 @@
-"""Helper functions for CvC policy logic.
+"""Helper functions for CvC agent logic."""
 
-- types: Constants, KnownEntity
-- geometry: Distance, direction, pathfinding
-- resources: Inventory, team state, phase
-- targeting: Scoring, claiming, alignment network
-"""
-
-from cvc.policy.helpers.geometry import (
+from cvc.agent.helpers.geometry import (
     direction_from_step,
     explore_offsets,
     format_position,
@@ -14,7 +8,7 @@ from cvc.policy.helpers.geometry import (
     manhattan,
     unstick_directions,
 )
-from cvc.policy.helpers.resources import (
+from cvc.agent.helpers.resources import (
     absolute_position,
     attr_int,
     attr_str,
@@ -35,7 +29,7 @@ from cvc.policy.helpers.resources import (
     team_id,
     team_min_resource,
 )
-from cvc.policy.helpers.targeting import (
+from cvc.agent.helpers.targeting import (
     aligner_target_score,
     is_claimed_by_other,
     is_usable_recent_extractor,
@@ -43,7 +37,7 @@ from cvc.policy.helpers.targeting import (
     spawn_relative_station_target,
     within_alignment_network,
 )
-from cvc.policy.helpers.types import (
+from cvc.agent.helpers.types import (
     _ALIGNER_EXPLORE_OFFSETS,
     _CLAIMED_TARGET_PENALTY,
     _ELEMENTS,
@@ -64,14 +58,12 @@ from cvc.policy.helpers.types import (
 )
 
 __all__ = [
-    # geometry
     "direction_from_step",
     "explore_offsets",
     "format_position",
     "greedy_step",
     "manhattan",
     "unstick_directions",
-    # resources
     "absolute_position",
     "attr_int",
     "attr_str",
@@ -91,14 +83,12 @@ __all__ = [
     "team_can_refill_hearts",
     "team_id",
     "team_min_resource",
-    # targeting
     "aligner_target_score",
     "is_claimed_by_other",
     "is_usable_recent_extractor",
     "scramble_target_score",
     "spawn_relative_station_target",
     "within_alignment_network",
-    # types + constants
     "KnownEntity",
     "_ALIGNER_EXPLORE_OFFSETS",
     "_CLAIMED_TARGET_PENALTY",
