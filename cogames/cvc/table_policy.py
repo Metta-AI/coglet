@@ -1,13 +1,13 @@
 """TablePolicy: program-table-driven CvC policy adapter.
 
-Mirrors CogletPolicy but replaces hard-coded CvcEngine dispatch with
-program table invocation. Each agent is fully independent.
+Dispatches through a flat program table operating on GameState.
+Each agent is fully independent — no CogletAgentPolicy engine.
 
 Architecture:
   TablePolicy (MultiAgentPolicy)
     └─ StatefulAgentPolicy[TableAgentState]  (one per agent)
          └─ TablePolicyImpl (StatefulPolicyImpl)
-              └─ CogletAgentPolicy (heuristic engine, for world model + state)
+              └─ GameState (observation processing + mutable state)
               └─ Program table (step/heal/retreat/mine/align/scramble/explore)
               └─ LLM brain (periodic analysis via "analyze" program)
 """
@@ -20,15 +20,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from cvc.agent import helpers as _h
-from cvc.agent.coglet_policy import CogletAgentPolicy
-from cvc.agent.world_model import WorldModel
-from cvc.programs import StepContext, seed_programs
+from cvc.game_state import GameState
+from cvc.programs import all_programs
 from mettagrid.policy.policy import MultiAgentPolicy, StatefulAgentPolicy, StatefulPolicyImpl
 from mettagrid.policy.policy_env_interface import PolicyEnvInterface
 from mettagrid.simulator import Action
 from mettagrid.simulator.interface import AgentObservation
-from mettagrid_sdk.games.cogsguard import CogsguardSemanticSurface
 
 from coglet.llm_executor import LLMExecutor
 from coglet.proglet import Program
@@ -36,13 +33,12 @@ from coglet.proglet import Program
 _LLM_INTERVAL = 500
 _LOG_INTERVAL = 500
 _LEARNINGS_DIR = os.environ.get("COGLET_LEARNINGS_DIR", "/tmp/coglet_learnings")
-_COGSGUARD_SURFACE = CogsguardSemanticSurface()
 
 
 @dataclass
 class TableAgentState:
     """All mutable state for one agent."""
-    engine: CogletAgentPolicy | None = None
+    game_state: GameState | None = None
     last_llm_step: int = 0
     llm_interval: int = _LLM_INTERVAL
     llm_latencies: list[float] = field(default_factory=list)
@@ -71,124 +67,46 @@ class TablePolicyImpl(StatefulPolicyImpl[TableAgentState]):
         self._game_id = game_id
 
     def initial_agent_state(self) -> TableAgentState:
-        engine = CogletAgentPolicy(
-            self._policy_env_info,
-            agent_id=self._agent_id,
-            world_model=WorldModel(),
-        )
-        return TableAgentState(engine=engine)
+        gs = GameState(self._policy_env_info, agent_id=self._agent_id)
+        return TableAgentState(game_state=gs)
 
-    def _invoke_sync(self, name: str, ctx: StepContext) -> Any:
+    def _invoke_sync(self, name: str, *args: Any) -> Any:
         """Synchronous program invocation for code programs."""
         prog = self._programs[name]
         if prog.executor == "code" and prog.fn is not None:
-            return prog.fn(ctx)
+            return prog.fn(*args)
         raise ValueError(f"Cannot sync-invoke {name} (executor={prog.executor})")
 
     def step_with_state(
         self, obs: AgentObservation, state: TableAgentState
     ) -> tuple[Action, TableAgentState]:
-        engine = state.engine
-        assert engine is not None
+        gs = state.game_state
+        assert gs is not None
 
-        # 1. LLM resource_bias is logged for the learner but NOT applied
-        #    to the engine. The engine's default round-robin distribution
-        #    (agent_id % 4) prevents resource herding.
+        # 1. Process observation — builds MettagridState, updates world model
+        gs.process_obs(obs)
 
-        # 2. Process observation: build MettagridState via CogsguardSemanticSurface
-        engine._step_index += 1
-        mg_state = _COGSGUARD_SURFACE.build_state_with_events(
-            obs,
-            policy_env_info=engine.policy_env_info,
-            step=engine._step_index,
-            previous_state=engine._previous_state,
-        )
+        # 2. Determine role via desired_role program
+        gs.role = self._invoke_sync("desired_role", gs)
 
-        # 3. Update world model + junctions (mirrors CvcEngine.evaluate_state)
-        engine._current_target_position = None
-        engine._current_target_kind = None
-        engine._events.extend(mg_state.recent_events)
-        engine._world_model.update(mg_state)
-        engine._update_junctions(mg_state)
-        current_pos = _h.absolute_position(mg_state)
-        engine._world_model.prune_missing_extractors(
-            current_position=current_pos,
-            visible_entities=mg_state.visible_entities,
-            obs_width=engine.policy_env_info.obs_width,
-            obs_height=engine.policy_env_info.obs_height,
-        )
-        engine._update_temp_blocks(current_pos)
-        engine._update_stall_counter(mg_state, current_pos)
+        # 3. Invoke main dispatch program
+        action = self._invoke_sync("step", gs)
 
-        # 4. Get role via macro directive
-        directive = engine._sanitize_macro_directive(engine._macro_directive(mg_state))
-        engine._current_directive = directive
-        engine._resource_bias = (
-            engine._default_resource_bias
-            if directive.resource_bias is None
-            else directive.resource_bias
-        )
-        role = directive.role or engine._desired_role(mg_state, objective=directive.objective)
+        step = gs.step_index
 
-        # 5. Build StepContext, invoke "step" program
-        ctx = StepContext(
-            engine=engine,
-            state=mg_state,
-            role=role,
-            invoke=self._invoke_sync,
-        )
-        result = self._invoke_sync("step", ctx)
-
-        # Unpack action from program result
-        if isinstance(result, tuple):
-            action, summary = result
-        else:
-            action, summary = result, ""
-
-        # 6. Update engine tracking (navigation, infos, previous state)
-        engine._record_navigation_observation(current_pos, summary)
-        macro_snapshot = engine._macro_snapshot(mg_state, role)
-        engine._infos = {
-            "role": role,
-            "subtask": summary,
-            "summary": summary,
-            "oscillation_steps": engine._oscillation_steps,
-            "phase": _h.phase_name(mg_state, role),
-            "heart": int(mg_state.self_state.inventory.get("heart", 0)),
-            "heart_batch_target": _h.heart_batch_target(mg_state, role),
-            "target_kind": engine._current_target_kind or "",
-            "target_position": (
-                ""
-                if engine._current_target_position is None
-                else _h.format_position(engine._current_target_position)
-            ),
-            "directive_role": directive.role or "",
-            "directive_resource_bias": directive.resource_bias or "",
-            "directive_objective": directive.objective or "",
-            "directive_note": directive.note,
-            "directive_target_entity_id": directive.target_entity_id or "",
-            "directive_target_region": directive.target_region or "",
-            **macro_snapshot,
-        }
-        engine._previous_state = mg_state
-        engine._last_global_pos = current_pos
-        engine._last_inventory_signature = _h.inventory_signature(mg_state)
-
-        step = engine._step_index
-
-        # 7. Periodic LLM analysis
+        # 4. Periodic LLM analysis
         if (
             self._llm_executor is not None
             and step - state.last_llm_step >= state.llm_interval
         ):
             state.last_llm_step = step
-            self._llm_analyze(engine, ctx, state)
+            self._llm_analyze(gs, state)
             self._adapt_interval(state)
 
-        # 8. Periodic snapshots (experience collection)
+        # 5. Periodic snapshots (experience collection)
         if step - state.last_snapshot_step >= _LOG_INTERVAL:
             state.last_snapshot_step = step
-            summary_dict = self._invoke_sync("summarize", ctx)
+            summary_dict = self._invoke_sync("summarize", gs)
             if summary_dict:
                 state.experience.append(summary_dict)
                 state.snapshot_log.append(summary_dict)
@@ -197,13 +115,12 @@ class TablePolicyImpl(StatefulPolicyImpl[TableAgentState]):
 
     def _llm_analyze(
         self,
-        engine: CogletAgentPolicy,
-        ctx: StepContext,
+        gs: GameState,
         state: TableAgentState,
     ) -> None:
         """Run the analyze LLM program via the program table."""
         try:
-            summary = self._invoke_sync("summarize", ctx)
+            summary = self._invoke_sync("summarize", gs)
             prog = self._programs.get("analyze")
             if prog is None or prog.executor != "llm":
                 return
@@ -225,24 +142,26 @@ class TablePolicyImpl(StatefulPolicyImpl[TableAgentState]):
 
             if "resource_bias" in parsed:
                 state.resource_bias_from_llm = parsed["resource_bias"]
+                # Optionally influence mining via GameState
+                gs.resource_bias = parsed["resource_bias"]
 
             state.llm_latencies.append(latency_ms)
             state.llm_log.append({
-                "step": engine._step_index,
+                "step": gs.step_index,
                 "agent": self._agent_id,
                 "latency_ms": round(latency_ms),
                 "analysis": parsed.get("analysis", ""),
                 "resource_bias": state.resource_bias_from_llm,
             })
             print(
-                f"[table] a{self._agent_id} step={engine._step_index} "
+                f"[table] a{self._agent_id} step={gs.step_index} "
                 f"llm={latency_ms:.0f}ms interval={state.llm_interval}: "
                 f"{parsed.get('analysis', '')[:100]}",
                 flush=True,
             )
         except Exception as e:
             state.llm_log.append({
-                "step": engine._step_index,
+                "step": gs.step_index,
                 "agent": self._agent_id,
                 "error": str(e),
             })
@@ -262,8 +181,8 @@ class TablePolicyImpl(StatefulPolicyImpl[TableAgentState]):
 class TablePolicy(MultiAgentPolicy):
     """Top-level CvC policy backed by a mutable program table.
 
-    Mirrors CogletPolicy but dispatches through the program table instead
-    of hard-coded CvcEngine._choose_action.
+    Dispatches through the program table instead of hard-coded
+    CvcEngine._choose_action.
     """
 
     short_names = ["coglet-table", "table-policy"]
@@ -277,7 +196,7 @@ class TablePolicy(MultiAgentPolicy):
         **kwargs: Any,
     ):
         super().__init__(policy_env_info, device=device, **kwargs)
-        self._programs = programs or seed_programs()
+        self._programs = programs or all_programs()
         self._agent_policies: dict[int, StatefulAgentPolicy[TableAgentState]] = {}
         self._llm_executor: LLMExecutor | None = None
         self._episode_start = time.time()
@@ -340,10 +259,9 @@ class TablePolicy(MultiAgentPolicy):
             st: TableAgentState | None = getattr(wrapper, "_state", None)
             if st is None:
                 continue
-            eng = st.engine
+            gs = st.game_state
             agents_data[str(aid)] = {
-                "steps": eng._step_index if eng else 0,
-                "last_infos": dict(eng._infos) if eng and eng._infos else {},
+                "steps": gs.step_index if gs else 0,
             }
             all_llm.extend(st.llm_log)
             all_snaps.extend(st.snapshot_log)

@@ -6,7 +6,7 @@ defaults.
 """
 from __future__ import annotations
 
-from cvc.programs import seed_programs
+from cvc.programs import all_programs, seed_programs
 from cvc.table_policy import TableAgentState, TablePolicy, TablePolicyImpl
 
 from coglet.proglet import Program
@@ -19,7 +19,7 @@ from coglet.proglet import Program
 def test_table_agent_state_defaults():
     """TableAgentState initializes with sane defaults."""
     state = TableAgentState()
-    assert state.engine is None
+    assert state.game_state is None
     assert state.last_llm_step == 0
     assert state.llm_interval == 500
     assert state.llm_latencies == []
@@ -31,24 +31,25 @@ def test_table_agent_state_defaults():
 
 
 # ---------------------------------------------------------------------------
-# seed_programs integration
+# all_programs integration
 # ---------------------------------------------------------------------------
+
+def test_all_programs_has_step():
+    """all_programs() includes the 'step' program needed by TablePolicyImpl."""
+    programs = all_programs()
+    assert "step" in programs
+    step = programs["step"]
+    assert step.executor == "code"
+    assert step.fn is not None
+    assert callable(step.fn)
+
 
 def test_seed_programs_has_required_keys():
     """seed_programs() returns all programs needed by TablePolicyImpl."""
     programs = seed_programs()
     required = {"step", "hold", "retreat", "mine", "align", "scramble",
-                "explore", "summarize", "analyze"}
+                "explore", "summarize", "analyze", "desired_role"}
     assert required.issubset(programs.keys())
-
-
-def test_seed_programs_step_is_code():
-    """The 'step' program is a code program with a callable fn."""
-    programs = seed_programs()
-    step = programs["step"]
-    assert step.executor == "code"
-    assert step.fn is not None
-    assert callable(step.fn)
 
 
 def test_seed_programs_analyze_is_llm():
@@ -68,8 +69,8 @@ def test_invoke_sync_calls_code_program():
     """_invoke_sync dispatches to fn for code programs."""
     called_with = []
 
-    def fake_fn(ctx):
-        called_with.append(ctx)
+    def fake_fn(gs):
+        called_with.append(gs)
         return ("action", "summary")
 
     programs = {"test_prog": Program(executor="code", fn=fake_fn)}
@@ -78,12 +79,12 @@ def test_invoke_sync_calls_code_program():
     impl = TablePolicyImpl.__new__(TablePolicyImpl)
     impl._programs = programs
 
-    result = impl._invoke_sync("test_prog", "fake_ctx")
+    result = impl._invoke_sync("test_prog", "fake_gs")
     assert result == ("action", "summary")
-    assert called_with == ["fake_ctx"]
+    assert called_with == ["fake_gs"]
 
 
-def test_invoke_sync_rejects_llm_program():
+def test_invoke_sync_rejects_llm():
     """_invoke_sync raises ValueError for non-code programs."""
     programs = {"llm_prog": Program(executor="llm")}
     impl = TablePolicyImpl.__new__(TablePolicyImpl)
