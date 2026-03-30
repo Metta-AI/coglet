@@ -25,95 +25,17 @@ from coglet.pco.optimizer import ProximalCogletOptimizer
 RESULTS_DIR = Path(".tests/pco_experiment")
 
 PUZZLES = [
-    # ── Game theory / decision trees ───────────────────
-    {
-        "name": "nim_optimal",
-        "description": "Nim game: given a list of pile sizes (positive ints), return the optimal move as (pile_index, stones_to_remove). The optimal strategy uses XOR (nim-sum): XOR all piles. If nim-sum is 0, you're in a losing position — return (0, 1). Otherwise, find a pile where pile_size XOR nim_sum < pile_size, and remove enough stones from that pile to make the total nim-sum 0.",
-        "signature": "def nim_optimal(piles: list[int]) -> tuple[int, int]:",
-        "tests": [
-            # nim-sum = 3^4^5 = 2. pile[0]=3, 3^2=1 < 3, remove 2 from pile 0
-            ([3, 4, 5], (0, 2)),
-            # nim-sum = 1^1 = 0. losing position, return (0,1)
-            ([1, 1], (0, 1)),
-            # nim-sum = 4. pile[0]=4, 4^4=0 < 4, remove 4 from pile 0
-            ([4], (0, 4)),
-            # nim-sum = 1^2^3 = 0. losing, return (0,1)
-            ([1, 2, 3], (0, 1)),
-            # nim-sum = 7^3^5 = 1. pile[0]=7, 7^1=6 < 7, remove 1. pile[2]=5, 5^1=4 < 5, also works but we want first.
-            ([7, 3, 5], (0, 1)),
-        ],
-    },
-    {
-        "name": "blackjack_action",
-        "description": "Basic blackjack strategy. Given player_total (int, hard total 4-21), dealer_upcard (int, 2-11 where 11=Ace), and is_soft (bool, whether player has a usable ace), return 'hit', 'stand', or 'double'. Rules: Hard totals: stand on 17+; double on 11 always; double on 10 if dealer 2-9; double on 9 if dealer 3-6; hit on 8 or less; for 12: hit if dealer 2-3 or 7+, stand if dealer 4-6; for 13-16: stand if dealer 2-6, hit if dealer 7+. Soft totals: soft 20+ stand; soft 18 stand if dealer 2,7,8, double if dealer 3-6, hit if dealer 9-11; soft 17 double if dealer 3-6, else hit; soft 13-16 double if dealer 5-6, else hit.",
-        "signature": "def blackjack_action(player_total: int, dealer_upcard: int, is_soft: bool) -> str:",
-        "tests": [
-            # hard totals
-            (17, 10, False, "stand"),
-            (11, 6, False, "double"),
-            (10, 10, False, "hit"),       # 10 vs dealer 10: hit (not double)
-            (10, 9, False, "double"),
-            (9, 5, False, "double"),
-            (9, 2, False, "hit"),          # 9 vs dealer 2: hit
-            (8, 6, False, "hit"),
-            (12, 3, False, "hit"),         # 12 vs 3: hit
-            (12, 4, False, "stand"),       # 12 vs 4: stand
-            (15, 6, False, "stand"),       # 15 vs 6: stand
-            (15, 7, False, "hit"),         # 15 vs 7: hit
-            (16, 10, False, "hit"),
-            # soft totals
-            (20, 6, True, "stand"),
-            (18, 7, True, "stand"),
-            (18, 5, True, "double"),
-            (18, 9, True, "hit"),
-            (17, 4, True, "double"),
-            (17, 8, True, "hit"),
-            (15, 5, True, "double"),       # soft 15 vs 5: double
-            (15, 7, True, "hit"),          # soft 15 vs 7: hit
-        ],
-    },
-    {
-        "name": "minimax_tictactoe",
-        "description": "Given a tic-tac-toe board (list of 9 ints: 0=empty, 1=X, 2=O) and the current player (1 or 2), return the index (0-8) of the best move using minimax. X is maximizing (+1 for X win, -1 for O win, 0 for draw). If multiple moves have the same score, return the lowest index.",
-        "signature": "def minimax_tictactoe(board: list[int], player: int) -> int:",
-        "tests": [
-            # X to move, can win immediately at index 2
-            ([1, 1, 0, 2, 2, 0, 0, 0, 0], 1, 2),
-            # O to move, must block X winning at index 2
-            ([1, 1, 0, 0, 2, 0, 0, 0, 0], 2, 2),
-            # Empty board, X plays — optimal is center (4) or corner (0). Minimax with lowest-index tiebreak → 0
-            ([0, 0, 0, 0, 0, 0, 0, 0, 0], 1, 0),
-            # X has center, O should take corner
-            ([0, 0, 0, 0, 1, 0, 0, 0, 0], 2, 0),
-            # X can fork: X at 0,4, O at 1,3. X should play 6 or 8 to create two ways to win.
-            ([1, 2, 0, 2, 1, 0, 0, 0, 0], 1, 8),
-        ],
-    },
-    # ── Tricky edge cases / precision ──────────────────
-    {
-        "name": "float_to_fraction",
-        "description": "Convert a decimal string to a simplified fraction string 'p/q'. Handle repeating decimals in parens: '0.(3)' = 1/3, '0.1(6)' = 1/6. Non-repeating: '0.5' = 1/2. Always simplify. Return '0/1' for '0' or '0.0'.",
-        "signature": "def float_to_fraction(s: str) -> str:",
-        "tests": [
-            ("0.5", "1/2"),
-            ("0.(3)", "1/3"),
-            ("0.1(6)", "1/6"),
-            ("0.(142857)", "1/7"),
-            ("1.0", "1/1"),
-            ("0.0", "0/1"),
-            ("2.5", "5/2"),
-            ("0.75", "3/4"),
-            ("0.(9)", "1/1"),
-            ("3.(3)", "10/3"),
-        ],
-    },
+    # ── Puzzles that Sonnet struggles with ─────────────
+    #
+    # These are selected because they have subtle edge cases
+    # that LLMs consistently get wrong on first attempt.
     {
         "name": "next_permutation",
-        "description": "Given a list of ints, rearrange it IN PLACE to the next lexicographically greater permutation. If it's the last permutation (descending), wrap to sorted ascending. Return the list. Algorithm: from the right, find first index i where nums[i] < nums[i+1]. Then find rightmost j > i where nums[j] > nums[i]. Swap i,j. Reverse everything after i.",
+        "description": "Given a list of ints, rearrange it to the next lexicographically greater permutation. If it's the last permutation (fully descending), wrap to sorted ascending. Return the list. Algorithm: from right, find first i where nums[i] < nums[i+1]. Find rightmost j > i where nums[j] > nums[i]. Swap i,j. Reverse everything after i. If no such i exists, reverse the whole list.",
         "signature": "def next_permutation(nums: list[int]) -> list[int]:",
         "tests": [
             ([1, 2, 3], [1, 3, 2]),
-            ([3, 2, 1], [1, 2, 3]),        # wrap around
+            ([3, 2, 1], [1, 2, 3]),
             ([1, 1, 5], [1, 5, 1]),
             ([1, 3, 2], [2, 1, 3]),
             ([2, 3, 1], [3, 1, 2]),
@@ -122,144 +44,152 @@ PUZZLES = [
         ],
     },
     {
-        "name": "calculator",
-        "description": "Evaluate a mathematical expression string with +, -, *, / and parentheses. Integers only (no floats in input). Division truncates toward zero. Respect operator precedence (* and / before + and -). Handle nested parens. No spaces in input.",
-        "signature": "def calculator(expr: str) -> int:",
-        "tests": [
-            ("3+2*2", 7),
-            ("(3+2)*2", 10),
-            ("10/3", 3),
-            ("14-3/2", 13),
-            ("2*(5+5*2)/3+(6/2+8)", 21),
-            ("(2+6*3+5-(3*14/7+2)*5)+3", -12),
-            ("1-1", 0),
-            ("0-2147483647", -2147483647),
-        ],
-    },
-    {
-        "name": "count_islands",
-        "description": "Given a 2D grid (list of strings, '1'=land '0'=water), count the number of islands. An island is a group of '1's connected horizontally or vertically (not diagonally).",
-        "signature": "def count_islands(grid: list[str]) -> int:",
-        "tests": [
-            (["11110", "11010", "11000", "00000"], 1),
-            (["11000", "11000", "00100", "00011"], 3),
-            (["1"], 1),
-            (["0"], 0),
-            ([],  0),
-            (["10111", "01011", "10101"], 5),
-        ],
-    },
-    # ── Algorithm precision ────────────────────────────
-    {
-        "name": "skyline",
-        "description": "Given buildings as list of [left, right, height], return the skyline as list of [x, height] key points. Buildings may overlap. At each x where the max height changes, emit [x, new_height]. Output must be sorted by x. When a building ends and no other building covers that x, height drops to 0.",
-        "signature": "def skyline(buildings: list[list[int]]) -> list[list[int]]:",
-        "tests": [
-            ([[2, 9, 10], [3, 7, 15], [5, 12, 12], [15, 20, 10], [19, 24, 8]],
-             [[2, 10], [3, 15], [7, 12], [12, 0], [15, 10], [20, 8], [24, 0]]),
-            ([[0, 2, 3], [2, 5, 3]], [[0, 3], [5, 0]]),  # adjacent same height
-            ([], []),
-            ([[1, 5, 3], [1, 5, 3]], [[1, 3], [5, 0]]),  # identical buildings
-        ],
-    },
-    {
-        "name": "lru_cache",
-        "description": "Implement an LRU cache. Given capacity (int) and operations (list of tuples), process each operation and return list of results. Operations: ('put', key, value) → None, ('get', key) → value or -1 if not found. On put, if at capacity, evict least recently used. Both get and put count as 'use'.",
-        "signature": "def lru_cache(capacity: int, operations: list[tuple]) -> list:",
-        "tests": [
-            (2, [("put", 1, 1), ("put", 2, 2), ("get", 1), ("put", 3, 3), ("get", 2), ("put", 4, 4), ("get", 1), ("get", 3), ("get", 4)],
-             [None, None, 1, None, -1, None, -1, 3, 4]),
-            (1, [("put", 1, 10), ("get", 1), ("put", 2, 20), ("get", 1), ("get", 2)],
-             [None, 10, None, -1, 20]),
-            (2, [("put", 2, 1), ("put", 1, 1), ("put", 2, 3), ("put", 4, 1), ("get", 1), ("get", 2)],
-             [None, None, None, None, -1, 3]),  # put(2,3) refreshes key 2, so key 1 is LRU
-        ],
-    },
-    {
-        "name": "regex_match",
-        "description": "Implement regex matching with '.' (any single char) and '*' (zero or more of preceding element). The match must cover the ENTIRE string. Use dynamic programming.",
-        "signature": "def regex_match(s: str, p: str) -> bool:",
-        "tests": [
-            ("aa", "a", False),
-            ("aa", "a*", True),
-            ("ab", ".*", True),
-            ("aab", "c*a*b", True),          # c* matches empty, a* matches aa, b matches b
-            ("mississippi", "mis*is*ip*.", True),
-            ("ab", ".*c", False),
-            ("", "c*", True),                  # c* matches empty
-            ("", "", True),
-            ("a", "ab*", True),                # b* matches empty
-            ("bbbba", ".*a*a", True),
-        ],
-    },
-    # ── State machine / parsing ────────────────────────
-    {
-        "name": "decode_ways",
-        "description": "Count the number of ways to decode a digit string where 'A'=1, 'B'=2, ..., 'Z'=26. For example '226' can be decoded as 'BZ'(2,26), 'VF'(22,6), or 'BBF'(2,2,6) = 3 ways. Leading zeros are invalid: '06' has 0 ways. Return the count.",
-        "signature": "def decode_ways(s: str) -> int:",
-        "tests": [
-            ("12", 2),      # 1,2 or 12
-            ("226", 3),     # 2,2,6 or 22,6 or 2,26
-            ("06", 0),      # leading zero invalid
-            ("10", 1),      # only 10
-            ("27", 1),      # only 2,7
-            ("2101", 1),    # 2,10,1
-            ("111111", 13),
-            ("0", 0),
-            ("1", 1),
-        ],
-    },
-    {
-        "name": "serialize_tree",
-        "description": "Given a binary tree as a nested tuple (value, left, right) where None means no child, serialize it to a string and deserialize back. The round-trip must be lossless. Return (serialized_string, deserialized_tree). Use preorder with 'N' for None, comma-separated. Example: (1, (2, None, None), (3, None, None)) → '1,2,N,N,3,N,N' → (1, (2, None, None), (3, None, None)).",
-        "signature": "def serialize_tree(tree: tuple | None) -> tuple[str, tuple | None]:",
-        "tests": [
-            ((1, (2, None, None), (3, None, None)), ("1,2,N,N,3,N,N", (1, (2, None, None), (3, None, None)))),
-            (None, ("N", None)),
-            ((1, None, (2, None, None)), ("1,N,2,N,N", (1, None, (2, None, None)))),
-            ((5, (3, (1, None, None), (4, None, None)), (8, None, None)),
-             ("5,3,1,N,N,4,N,N,8,N,N", (5, (3, (1, None, None), (4, None, None)), (8, None, None)))),
-        ],
-    },
-    # ── Combinatorial ──────────────────────────────────
-    {
-        "name": "word_break",
-        "description": "Given a string s and a list of dictionary words, return True if s can be segmented into a space-separated sequence of one or more dictionary words. Words can be reused.",
-        "signature": "def word_break(s: str, words: list[str]) -> bool:",
-        "tests": [
-            ("leetcode", ["leet", "code"], True),
-            ("applepenapple", ["apple", "pen"], True),
-            ("catsandog", ["cats", "dog", "sand", "and", "cat"], False),
-            ("", ["a"], True),
-            ("aaaaaaa", ["aaaa", "aaa"], True),      # 4+3 or 3+4 or 3+3+... nope, 7=4+3
-            ("aaaaaab", ["a", "aa", "aaa"], False),   # can't make the 'b'
-            ("abcd", ["a", "abc", "b", "cd"], True),  # a+b+cd or abc+d... abc+d needs d
-        ],
-    },
-    {
-        "name": "coin_change",
-        "description": "Given coin denominations (list[int]) and a target amount (int), return the minimum number of coins to make that amount. Return -1 if impossible. Coins can be reused.",
-        "signature": "def coin_change(coins: list[int], amount: int) -> int:",
-        "tests": [
-            ([1, 5, 10, 25], 30, 2),       # 25+5
-            ([2], 3, -1),                    # impossible
-            ([1], 0, 0),
-            ([1, 2, 5], 11, 3),              # 5+5+1
-            ([186, 419, 83, 408], 6249, 20), # needs DP, greedy fails
-            ([3, 7], 11, -1),                # impossible: no combo of 3s and 7s makes 11
-            ([3, 7], 12, 4),                 # 3+3+3+3
-        ],
-    },
-    {
         "name": "task_scheduler",
-        "description": "Given tasks (list of uppercase chars) and cooldown n (int), return minimum intervals needed to execute all tasks. Same task must have at least n intervals between executions. Idle slots are allowed. Order doesn't need to match input.",
+        "description": "Given tasks (list of chars) and cooldown n, return the minimum number of intervals to execute all tasks. Between two same tasks, there must be at least n intervals (other tasks or idle). Formula: max(len(tasks), (max_freq - 1) * (n + 1) + count_of_max_freq_tasks).",
         "signature": "def task_scheduler(tasks: list[str], n: int) -> int:",
         "tests": [
-            (["A", "A", "A", "B", "B", "B"], 2, 8),       # A_B_A_B_A_B → 8
-            (["A", "A", "A", "B", "B", "B"], 0, 6),       # no cooldown → 6
+            (["A", "A", "A", "B", "B", "B"], 2, 8),
+            (["A", "A", "A", "B", "B", "B"], 0, 6),
             (["A", "A", "A", "A", "A", "A", "B", "C", "D", "E", "F", "G"], 2, 16),
             (["A"], 5, 1),
-            (["A", "B", "C", "A", "B", "C"], 3, 6),        # no idle needed: ABCABC
+            # 3 distinct tasks, each appears twice. max_freq=2, count=3.
+            # formula: (2-1)*(3+1)+3 = 7, len=6, answer = max(7,6) = 7
+            (["A", "B", "C", "A", "B", "C"], 3, 7),
+        ],
+    },
+    {
+        "name": "minimax_tictactoe",
+        "description": "Given a tic-tac-toe board (list of 9 ints: 0=empty, 1=X, 2=O) and current player (1 or 2), return the best move index (0-8). Use depth-aware minimax: X maximizes, O minimizes. Score = +10-depth for X win, -10+depth for O win, 0 for draw. This means faster wins score higher. Ties broken by lowest index.",
+        "signature": "def minimax_tictactoe(board: list[int], player: int) -> int:",
+        "tests": [
+            ([1, 1, 0, 2, 2, 0, 0, 0, 0], 1, 2),   # X wins immediately at 2
+            ([1, 1, 0, 0, 2, 0, 0, 0, 0], 2, 2),   # O blocks at 2
+            ([0, 0, 0, 0, 0, 0, 0, 0, 0], 1, 0),   # empty board, corner
+            ([0, 0, 0, 0, 1, 0, 0, 0, 0], 2, 0),   # X center, O takes corner
+            # Fork: X at 0,4 O at 1,3. Move 8 gives forced win (depth-aware prefers it)
+            ([1, 2, 0, 2, 1, 0, 0, 0, 0], 1, 8),
+        ],
+    },
+    {
+        "name": "text_justify",
+        "description": "Given a list of words and a max width, format text with full justification. Each line must be exactly maxWidth chars. Distribute extra spaces as evenly as possible; if uneven, left slots get more. Last line is left-justified with no extra spaces. Single-word lines are left-justified.",
+        "signature": "def text_justify(words: list[str], maxWidth: int) -> list[str]:",
+        "tests": [
+            (["This", "is", "an", "example", "of", "text", "justification."], 16,
+             ["This    is    an", "example  of text", "justification.  "]),
+            (["What", "must", "be", "acknowledgment", "shall", "be"], 16,
+             ["What   must   be", "acknowledgment  ", "shall be        "]),
+            (["Science", "is", "what", "we", "understand", "well", "enough", "to", "explain",
+              "to", "a", "computer.", "Art", "is", "everything", "else", "we", "do"], 20,
+             ["Science  is  what we", "understand      well", "enough to explain to",
+              "a  computer.  Art is", "everything  else  we", "do                  "]),
+        ],
+    },
+    {
+        "name": "candy_crush",
+        "description": "Given a 1D list of integers representing candy colors, repeatedly remove all groups of 3+ consecutive same-colored candies until no more can be removed. After removal, remaining candies fall together (close gaps). Return the final list.",
+        "signature": "def candy_crush(board: list[int]) -> list[int]:",
+        "tests": [
+            ([1, 3, 3, 3, 2, 2, 2, 1], [1, 1]),           # remove 3s, then 2s
+            ([1, 1, 1], []),                                 # all removed
+            ([1, 2, 3], [1, 2, 3]),                          # nothing to remove
+            # remove 2s → [1,1,1] → remove those → []
+            ([1, 2, 2, 2, 1, 1], []),
+            ([1, 1, 2, 2, 2, 1], []),                        # remove 2s → [1,1,1] → remove → []
+            ([1, 2, 1], [1, 2, 1]),                          # no groups of 3
+        ],
+    },
+    {
+        "name": "int_to_roman",
+        "description": "Convert an integer (1-3999) to a Roman numeral string. Use subtractive notation: IV=4, IX=9, XL=40, XC=90, CD=400, CM=900.",
+        "signature": "def int_to_roman(num: int) -> str:",
+        "tests": [
+            (3, "III"),
+            (4, "IV"),
+            (9, "IX"),
+            (58, "LVIII"),
+            (1994, "MCMXCIV"),
+            (3999, "MMMCMXCIX"),
+            (44, "XLIV"),
+            (100, "C"),
+        ],
+    },
+    {
+        "name": "atoi",
+        "description": "Implement string to integer (atoi). Steps: 1) Skip leading whitespace. 2) Optional '+' or '-' sign. 3) Read digits until non-digit or end. 4) Clamp to 32-bit signed int range [-2^31, 2^31-1]. Return 0 if no digits found.",
+        "signature": "def atoi(s: str) -> int:",
+        "tests": [
+            ("42", 42),
+            ("   -42", -42),
+            ("4193 with words", 4193),
+            ("words and 987", 0),
+            ("", 0),
+            ("-91283472332", -2147483648),     # clamp to INT_MIN
+            ("91283472332", 2147483647),       # clamp to INT_MAX
+            ("+-12", 0),                        # invalid
+            ("  +0 123", 0),
+            ("   +", 0),
+        ],
+    },
+    {
+        "name": "trap_rain_water",
+        "description": "Given a list of non-negative ints representing an elevation map (width 1 per bar), compute how much rain water can be trapped. Use the two-pointer approach.",
+        "signature": "def trap_rain_water(height: list[int]) -> int:",
+        "tests": [
+            ([0, 1, 0, 2, 1, 0, 1, 3, 2, 1, 2, 1], 6),
+            ([4, 2, 0, 3, 2, 5], 9),
+            ([1, 2, 3, 4], 0),
+            ([], 0),
+            ([3, 0, 3], 3),
+            ([5, 2, 1, 2, 1, 5], 14),
+        ],
+    },
+    {
+        "name": "zigzag_level_order",
+        "description": "Given a binary tree as nested tuple (value, left, right) where None = no child, return zigzag (spiral) level-order traversal as list of lists. First level left-to-right, second right-to-left, alternating.",
+        "signature": "def zigzag_level_order(root: tuple | None) -> list[list[int]]:",
+        "tests": [
+            ((3, (9, None, None), (20, (15, None, None), (7, None, None))),
+             [[3], [20, 9], [15, 7]]),
+            ((1, (2, (4, None, None), None), (3, None, (5, None, None))),
+             [[1], [3, 2], [4, 5]]),
+            (None, []),
+            ((1, None, None), [[1]]),
+        ],
+    },
+    {
+        "name": "alien_dictionary",
+        "description": "Given a list of words sorted in an alien language, derive the character ordering. Return a string of characters in sorted order. If invalid (cycle), return ''. If multiple valid orderings, return any. Use topological sort on the character graph inferred from adjacent word pairs.",
+        "signature": "def alien_dictionary(words: list[str]) -> str:",
+        "tests": [
+            (["wrt", "wrf", "er", "ett", "rftt"], "wertf"),
+            (["z", "x"], "zx"),
+            (["z", "x", "z"], ""),              # cycle: z < x < z
+            (["abc", "ab"], ""),                 # invalid: longer word before prefix
+        ],
+    },
+    {
+        "name": "kth_smallest_bst",
+        "description": "Given a BST as nested tuple (value, left, right) and k (1-indexed), return the kth smallest element. Use in-order traversal.",
+        "signature": "def kth_smallest_bst(root: tuple, k: int) -> int:",
+        "tests": [
+            ((3, (1, None, (2, None, None)), (4, None, None)), 1, 1),
+            ((5, (3, (2, (1, None, None), None), (4, None, None)), (6, None, None)), 3, 3),
+            ((1, None, (2, None, None)), 2, 2),
+            ((3, (1, None, (2, None, None)), (4, None, None)), 4, 4),
+        ],
+    },
+    {
+        "name": "median_sorted_arrays",
+        "description": "Find the median of two sorted arrays. Must run in O(log(min(m,n))) time. If the combined length is even, return the average of the two middle values as a float. If odd, return the middle value as a float.",
+        "signature": "def median_sorted_arrays(nums1: list[int], nums2: list[int]) -> float:",
+        "tests": [
+            ([1, 3], [2], 2.0),
+            ([1, 2], [3, 4], 2.5),
+            ([0, 0], [0, 0], 0.0),
+            ([], [1], 1.0),
+            ([2], [], 2.0),
+            ([1, 3, 5, 7], [2, 4, 6, 8], 4.5),
         ],
     },
 ]
@@ -672,16 +602,22 @@ class CodeGenLearner(LearnerCoglet):
 
 
 def test_harness_runs_correct_solution():
-    puzzle = next(p for p in PUZZLES if p["name"] == "coin_change")
+    puzzle = next(p for p in PUZZLES if p["name"] == "trap_rain_water")
     code = textwrap.dedent("""\
-        def coin_change(coins, amount):
-            dp = [float('inf')] * (amount + 1)
-            dp[0] = 0
-            for i in range(1, amount + 1):
-                for c in coins:
-                    if c <= i and dp[i - c] + 1 < dp[i]:
-                        dp[i] = dp[i - c] + 1
-            return dp[amount] if dp[amount] != float('inf') else -1
+        def trap_rain_water(height):
+            if not height: return 0
+            l, r = 0, len(height) - 1
+            lmax = rmax = water = 0
+            while l < r:
+                if height[l] <= height[r]:
+                    lmax = max(lmax, height[l])
+                    water += lmax - height[l]
+                    l += 1
+                else:
+                    rmax = max(rmax, height[r])
+                    water += rmax - height[r]
+                    r -= 1
+            return water
     """)
     result = run_solution(puzzle, code)
     assert result["passed"] is True
@@ -689,8 +625,8 @@ def test_harness_runs_correct_solution():
 
 
 def test_harness_catches_bad_solution():
-    puzzle = next(p for p in PUZZLES if p["name"] == "coin_change")
-    code = "def coin_change(coins, amount): return len(coins)"
+    puzzle = next(p for p in PUZZLES if p["name"] == "trap_rain_water")
+    code = "def trap_rain_water(height): return 0"
     result = run_solution(puzzle, code)
     assert result["passed"] is False
     assert result["error"] is not None

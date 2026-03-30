@@ -313,6 +313,9 @@ def create_app(trace_path: str | None = None):
             ]
         }
 
+    def _id_map() -> dict[int, str]:
+        return {id(handle.coglet): cid for cid, (handle, _, _) in registry.items()}
+
     @app.get("/status", operation_id="runtime_status")
     async def status():
         """Show runtime status: tree, coglet list, and links."""
@@ -326,7 +329,7 @@ def create_app(trace_path: str | None = None):
                 "channels": _channels_for(cid),
             })
         return {
-            "tree": runtime.tree(),
+            "tree": runtime.tree(id_map=_id_map()),
             "coglets": coglets,
             "links": [
                 {"src": s, "src_channel": sc, "dest": d, "dest_channel": dc}
@@ -356,7 +359,7 @@ def create_app(trace_path: str | None = None):
 
     @app.get("/tree", operation_id="runtime_tree")
     async def tree():
-        return {"tree": runtime.tree()}
+        return {"tree": runtime.tree(id_map=_id_map())}
 
     @app.post("/shutdown", operation_id="shutdown_runtime")
     async def shutdown():
@@ -376,10 +379,30 @@ def create_app(trace_path: str | None = None):
     return app
 
 
-def start_server(port: int, trace_path: str | None = None) -> None:
-    import uvicorn
-    app = create_app(trace_path=trace_path)
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+def start_server(port: int, trace_path: str | None = None, foreground: bool = False) -> None:
+    if foreground:
+        import uvicorn
+        app = create_app(trace_path=trace_path)
+        uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+        return
+
+    import subprocess, sys, time
+    cmd = [sys.executable, "-m", "coglet.cli", "runtime", "start", "--foreground",
+           "--port", str(port)]
+    if trace_path:
+        cmd += ["--trace", trace_path]
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            start_new_session=True)
+    # Wait briefly and check the process is alive and port is responding
+    time.sleep(0.5)
+    if proc.poll() is not None:
+        print(f"error: runtime exited immediately (code {proc.returncode})")
+        sys.exit(1)
+    try:
+        _get(port, "/status")
+        print(f"coglet runtime started (pid={proc.pid}, port={port})")
+    except Exception:
+        print(f"coglet runtime started (pid={proc.pid}, port={port}) [not yet responding]")
 
 
 # ---------------------------------------------------------------------------
@@ -492,6 +515,8 @@ def main() -> None:
     rt_sub = rt.add_subparsers(dest="action")
     rt_start = rt_sub.add_parser("start", parents=[port_args])
     rt_start.add_argument("--trace", type=str, default=None)
+    rt_start.add_argument("--foreground", action="store_true",
+                          help="run in foreground (default: daemon mode)")
     rt_sub.add_parser("stop", parents=[port_args])
     rt_sub.add_parser("status", parents=[port_args])
 
@@ -551,7 +576,7 @@ def main() -> None:
 
     if args.command == "runtime":
         if args.action == "start":
-            start_server(port, trace_path=args.trace)
+            start_server(port, trace_path=args.trace, foreground=args.foreground)
         elif args.action == "stop":
             print(_post(port, "/shutdown").get("msg"))
         elif args.action == "status":

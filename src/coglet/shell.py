@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import cmd
 import json
+import os
 import readline
 import sys
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 
@@ -29,6 +31,9 @@ class CogletShell(cmd.Cmd):
         self._cache_ids: list[str] = []
         self._cache_channels: dict[str, dict] = {}  # id -> {transmit, listen}
         self._observe_thread: threading.Thread | None = None
+        # Remove ':' from readline delimiters so id:channel completes as one token
+        delims = readline.get_completer_delims()
+        readline.set_completer_delims(delims.replace(":", ""))
 
     # --- HTTP helpers ---
 
@@ -130,7 +135,7 @@ class CogletShell(cmd.Cmd):
                 print(f"  {lk['src']}:{lk['src_channel']} -> {lk['dest']}:{lk['dest_channel']}")
         self._cache_ids = [c["id"] for c in resp.get("coglets", [])]
 
-    def do_ls(self, _arg):
+    def do_coglets(self, _arg):
         """List all coglets (short form of status)."""
         resp = self._get("/status")
         if not resp:
@@ -145,6 +150,67 @@ class CogletShell(cmd.Cmd):
         resp = self._get("/tree")
         if resp:
             print(resp["tree"])
+
+    # --- Filesystem commands ---
+
+    def do_ls(self, arg):
+        """List files in current (or given) directory."""
+        target = Path(arg).expanduser() if arg else Path.cwd()
+        if not target.is_absolute():
+            target = Path.cwd() / target
+        try:
+            entries = sorted(target.iterdir())
+        except (OSError, PermissionError) as e:
+            print(f"  error: {e}")
+            return
+        for entry in entries:
+            suffix = "/" if entry.is_dir() else ""
+            print(f"  {entry.name}{suffix}")
+
+    def complete_ls(self, text, line, begidx, endidx):
+        return self._path_completions(text)
+
+    def do_cd(self, arg):
+        """Change working directory."""
+        target = Path(arg).expanduser() if arg else Path.home()
+        if not target.is_absolute():
+            target = Path.cwd() / target
+        target = target.resolve()
+        try:
+            os.chdir(target)
+            self.prompt = f"coglet {target.name}> "
+        except (OSError, PermissionError) as e:
+            print(f"  error: {e}")
+
+    def complete_cd(self, text, line, begidx, endidx):
+        return [p for p in self._path_completions(text) if p.endswith("/")]
+
+    def do_pwd(self, _arg):
+        """Print working directory."""
+        print(f"  {Path.cwd()}")
+
+    def _path_completions(self, text: str) -> list[str]:
+        """Complete filesystem paths."""
+        p = Path(text).expanduser() if text else Path(".")
+        if text and not text.endswith("/"):
+            parent = p.parent
+            prefix = p.name
+        else:
+            parent = p
+            prefix = ""
+        if not parent.is_absolute():
+            parent = Path.cwd() / parent
+        try:
+            entries = list(parent.iterdir())
+        except (OSError, PermissionError):
+            return []
+        matches = []
+        for entry in entries:
+            if entry.name.startswith(prefix):
+                rel = text[:text.rfind("/") + 1] if "/" in text else ""
+                suffix = "/" if entry.is_dir() else " "
+                matches.append(f"{rel}{entry.name}{suffix}")
+        return matches
 
     def do_create(self, arg):
         """Create a coglet: create PATH.cog"""

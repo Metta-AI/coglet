@@ -157,18 +157,24 @@ class CogletRuntime:
 
     # --- Tree visualization ---
 
-    def tree(self) -> str:
-        """Return ASCII visualization of the coglet tree."""
+    def tree(self, id_map: dict[int, str] | None = None) -> str:
+        """Return ASCII visualization of the coglet tree.
+
+        *id_map* maps ``id(coglet)`` → registry ID string so that IDs
+        are shown next to each node.
+        """
         roots = [c for c in self._coglets if id(c) not in self._parents]
         if not roots:
             return "CogletRuntime (empty)"
         lines = ["CogletRuntime"]
         for i, root in enumerate(roots):
-            self._tree_node(root, lines, prefix="", is_last=(i == len(roots) - 1))
+            self._tree_node(root, lines, prefix="", is_last=(i == len(roots) - 1),
+                            id_map=id_map)
         return "\n".join(lines)
 
     def _tree_node(
-        self, coglet: Coglet, lines: list[str], prefix: str, is_last: bool
+        self, coglet: Coglet, lines: list[str], prefix: str, is_last: bool,
+        id_map: dict[int, str] | None = None,
     ) -> None:
         connector = "\u2514\u2500\u2500 " if is_last else "\u251c\u2500\u2500 "
         mixins = [
@@ -177,8 +183,10 @@ class CogletRuntime:
             if cls.__name__.endswith("Let") and cls.__name__ not in ("Coglet",)
         ]
         name = type(coglet).__name__
+        cid = (id_map or {}).get(id(coglet), "")
+        id_str = f" ({cid})" if cid else ""
         mixin_str = f" [{', '.join(mixins)}]" if mixins else ""
-        lines.append(f"{prefix}{connector}{name}{mixin_str}")
+        lines.append(f"{prefix}{connector}{name}{id_str}{mixin_str}")
 
         child_prefix = prefix + ("    " if is_last else "\u2502   ")
 
@@ -207,4 +215,5 @@ class CogletRuntime:
             self._tree_node(
                 child_handle.coglet, lines, child_prefix,
                 is_last=(j == len(children) - 1),
+                id_map=id_map,
             )
