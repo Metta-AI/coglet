@@ -91,8 +91,9 @@ class TablePolicyImpl(StatefulPolicyImpl[TableAgentState]):
         engine = state.engine
         assert engine is not None
 
-        # 1. Apply LLM guidance to engine
-        engine._llm_resource_bias = state.resource_bias_from_llm
+        # 1. LLM resource_bias is logged for the learner but NOT applied
+        #    to the engine. The engine's default round-robin distribution
+        #    (agent_id % 4) prevents resource herding.
 
         # 2. Process observation: build MettagridState via CogsguardSemanticSurface
         engine._step_index += 1
