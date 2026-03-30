@@ -1,12 +1,11 @@
 """Tests for coglet CLI."""
 
-import asyncio
 import textwrap
 from pathlib import Path
 
 import pytest
 
-from coglet.cli import build_config, load_manifest, resolve_class, run
+from coglet.cli import build_config, load_manifest, resolve_class, load_cogbase
 from coglet.runtime import CogletRuntime
 
 
@@ -116,12 +115,9 @@ def test_build_config(cog_dir: Path):
 @pytest.mark.asyncio
 async def test_run_spawns_root(cog_dir: Path):
     """Verify run() creates runtime and spawns the root coglet."""
-    manifest = load_manifest(cog_dir)
-    cls = resolve_class(manifest["coglet"]["class"], cog_dir)
-    config = build_config(manifest, cls)
-
+    base = load_cogbase(cog_dir)
     runtime = CogletRuntime()
-    handle = await runtime.run(config)
+    handle = await runtime.run(base)
 
     assert handle.coglet.greeting == "test"
     assert "HelloCoglet" in runtime.tree()
@@ -132,12 +128,9 @@ async def test_run_spawns_root(cog_dir: Path):
 @pytest.mark.asyncio
 async def test_child_spawning_via_runtime(cog_dir_with_children: Path):
     """Verify a coglet can spawn children through the runtime capability."""
-    manifest = load_manifest(cog_dir_with_children)
-    cls = resolve_class(manifest["coglet"]["class"], cog_dir_with_children)
-    config = build_config(manifest, cls)
-
+    base = load_cogbase(cog_dir_with_children)
     runtime = CogletRuntime()
-    handle = await runtime.run(config)
+    handle = await runtime.run(base)
 
     parent = handle.coglet
     assert parent.child_handle is not None

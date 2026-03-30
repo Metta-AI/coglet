@@ -6,6 +6,9 @@ requires-python = ">=3.11"
 dependencies = [
     "mettagrid",
     "pydantic",
+    "fastapi",
+    "uvicorn",
+    "fastapi-mcp",
 ]
 
 [project.scripts]
