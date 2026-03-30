@@ -65,28 +65,6 @@ class CogletAgentPolicy(CvcEngine):
             return 5, 0
         return 4, 1
 
-    def _desired_role(self, state: MettagridState, *, objective: str | None = None) -> str:
-        """Scale role budgets for small teams (< 8 agents)."""
-        num_agents = (len(state.team_summary.members) + 1) if state.team_summary and state.team_summary.members else 8
-        if num_agents >= 8:
-            return super()._desired_role(state, objective=objective)
-        # For small teams: scale budgets, then use parent logic
-        step = state.step or self._step_index
-        # Proportional budgets for 4 agents: 2a/0s early, 2a/0s late
-        max_pressure = max(num_agents - 1, 1)
-        if step < 10:
-            a, s = min(1, max_pressure), 0
-        elif step < 300:
-            a, s = min(max_pressure, max(num_agents // 2, 1)), 0
-        else:
-            a, s = min(max_pressure - 1, max(num_agents // 2, 1)), min(1, max_pressure - max(num_agents // 2, 1))
-        # ID-based assignment: highest IDs get priority roles
-        if s > 0 and self._agent_id >= num_agents - s:
-            return "scrambler"
-        if self._agent_id >= num_agents - s - a:
-            return "aligner"
-        return "miner"
-
     def _should_retreat(self, state: MettagridState, role: str, safe_target: KnownEntity | None) -> bool:
         if super()._should_retreat(state, role, safe_target):
             return True
