@@ -1,19 +1,26 @@
 # Coach TODO
 
 ## Current Priorities
-- [ ] Monitor beta:v30 freeplay results and beta:v31 tournament advancement
-- [ ] Test with 1v1 mode (`cogames run -c 16`) to validate against real opponents
-- [ ] Investigate removing scramblers for cooperative scoring (both teams' scramblers reduce total junctions)
+- [ ] Monitor beta:v46 freeplay and beta:v47 tournament advancement
+- [ ] Fix junction cascade: team loses 5→1 junctions between step 500-2000
+- [ ] Improve exploration coverage — agents only discover ~20/65 junctions
+- [ ] Run PCO epoch with recent game learnings to evolve program table
+
+## Key Findings (Session 38)
+- SDK constants differ from IMPROVE.md docs: ALIGN_DIST=15 (not 3), AOE=10 (not 4)
+- In `cogames run -c 16` (mixed teams), both policies get SAME score — confirms mixed-team format
+- Self-play baseline: avg 2.39 across 7 seeds (42-48)
+- Junction cascade: team holds 5 at step 500, drops to 1 by step 2000, never recovers
+- Only ~20/65 junctions discovered per game — exploration is the bottleneck
+- All parameter changes tested (9 experiments) regressed or matched baseline
 
 ## Improvement Ideas
-- [ ] Read teammate vibes for more nuanced coordination (beyond position-based)
+- [ ] Better exploration patterns — current 8 offsets at distance 22 leave 2/3 of map undiscovered
+- [ ] Periodic forced exploration even when targets exist — break out of local target cycling
+- [ ] PCO evolution — let LLM propose program patches based on game experience
+- [ ] Read teammate vibes for coordination (beyond position-based)
 - [ ] Map topology analysis — understand wall patterns to improve exploration
-- [ ] Dynamic role switching — let agents switch roles based on game state
-- [ ] LLM brain integration — use analyze prompt for real-time strategic adaptation
-- [ ] PCO evolution — run PCO epochs to evolve program table
-- [ ] Better junction discovery — agents may miss junctions behind walls
-- [ ] Adaptive role allocation based on game phase (not just step count)
-- [ ] Late-game optimization — shift more to aligners after step 5000
+- [ ] LLM brain integration — use analyze prompt for stagnation detection (like alpha.0)
 
 ## Dead Ends (Don't Retry)
 - [x] Retreat threshold tuning — always trades deaths for score regression
@@ -22,7 +29,7 @@
 - [x] Remove alignment network filter — required by game mechanics
 - [x] Expand alignment range +5 — causes targeting unreachable junctions
 - [x] Remove scramblers entirely (SCRIMMAGE only) — confirmed twice in self-play, scramblers help
-- [x] Resource-aware pressure budgets — too aggressive scaling
+- [x] Resource-aware pressure budgets — too aggressive scaling, avg 1.68 vs 2.39
 - [x] Spread miner resource bias — least-available targeting is better
 - [x] Reorder aligner explore offsets — existing order works better
 - [x] Increase claim penalty (12→25) — pushes aligners to suboptimal targets
@@ -31,11 +38,20 @@
 - [x] Emergency mining threshold 50 or 10 — hurts high-scoring seeds more than helps low ones
 - [x] Wider enemy AOE radius 15 for retreat — agents retreat too much, avg 1.83 vs 2.10
 - [x] Delay scramblers to step 500 — avg 0.99 vs 2.10, opponent builds unchallenged
+- [x] Junction memory 600→2000 — stale data causes avg drop from 2.39 to 3.05 (high variance)
+- [x] Late-game pressure ramp (5 aligners after 5000) — avg 2.61 vs 2.39
+- [x] Earlier scrambler (step 100) + 2 late scramblers — avg 2.00 vs 2.39
+- [x] More miners (4 vs 3) — avg 1.76 vs 2.39
+- [x] 5 aligners from step 0 — avg 1.63 vs 2.39, economy starved
+- [x] Reduce hotspot penalty (3*3 vs 5*8) — avg 1.35, agents waste hearts on contested junctions
+- [x] Improve scrambler defense (hub_threat+15 threat bonus) — avg 1.77 vs 2.39
+- [x] Adaptive role promotion (miners→aligners when team has surplus) — avg 1.48, destabilizes self-play
 
 ## Testing Notes
-- **ALWAYS test 1v1 with `cogames run -c 16 -p A -p B`** not just scrimmage
-- Scrimmage (`-c 8`) is self-play where one policy controls all agents — inflated scores
-- Previous "remove scramblers" test was scrimmage only — retest in 1v1 for cooperative scoring
+- **ALWAYS test across 7 seeds (42-48) for reliable averages**
+- Scrimmage (`-c 8`): self-play, one policy controls all 8 agents per team
+- `cogames run -c 16 -p A -p B`: mixed teams, both policies distributed across teams
+- Freeplay uses mixed-team format — agents from different policies on same team
 
 ## Done
 - [x] Establish baseline: 1.31 on machina_1 (seed 42)
@@ -53,3 +69,4 @@
 - [x] Session 13: CRITICAL FIX — agent_id normalization (% 8) for tournament mode (1v1 avg 18.38, v19)
 - [x] Session 36: teammate-aware aligner targeting (+30% avg self-play), submitted v26/v27
 - [x] Session 37 (ID): Fix double role-adjustment + wider enemy retreat + junction memory 400→600 (+11% self-play, v30/v31)
+- [x] Session 38: Deep analysis — 9 parameter experiments, all regress. Identified junction cascade + exploration bottleneck. Submitted v46/v47.

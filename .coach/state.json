@@ -1,17 +1,17 @@
 {
-  "last_session": "20260331-113500",
+  "last_session": "20260331-140000",
   "best_score": 10.63,
-  "total_sessions": 37,
+  "total_sessions": 38,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 10.63,
   "tournament_rank": 1,
   "tournament_top": 10.63,
-  "latest_submission": "beta:v31",
-  "freeplay_submission": "beta:v30",
-  "key_fix": "Remove double role-adjustment, wider enemy retreat detection, longer junction memory (+11% self-play)",
+  "latest_submission": "beta:v47",
+  "freeplay_submission": "beta:v46",
+  "key_fix": "Session 38: deep analysis — SDK constants differ from docs (ALIGN_DIST=15 not 3, AOE=10 not 4), junction cascade identified, all parameter changes regress",
   "approach_stats": {
     "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
-    "design": {"attempts": 12, "improvements": 8, "last_used": "20260331-113500"}
+    "design": {"attempts": 18, "improvements": 8, "last_used": "20260331-140000"}
   }
 }
