@@ -1,10 +1,10 @@
 # IMPROVE.md — CvC Tournament Agent
 
-Coaching guide for the Cogs vs Clips tournament agent.
+Coaching guide for the Cogs vs Clips tournament agent. Currently **#1** with 10.63 (beta:v7).
 
 ## Objective
 
-Maximize **per-cog score** in the CvC tournament. Score = total junctions held per step / max steps. Higher = better. Current tournament best: **6.13** (beta:v8). Tournament leader: **~13**.
+Maximize **per-cog score**. Score = total junctions held per step / max steps. Higher = better.
 
 ## Setup
 
@@ -16,7 +16,11 @@ uv pip install -e . && uv pip install cogames
 
 Verify: `source .venv/bin/activate && cogames --version`
 
-## Eval
+## Workflow: Local → Freeplay → Tournament
+
+### 1. Run Locally
+
+Play a game and check the "per cog" score:
 
 ```bash
 source .venv/bin/activate
@@ -26,31 +30,69 @@ PYTHONPATH=. cogames play -m machina_1 \
   -c 8 -r none --seed 42
 ```
 
-Look for the "per cog" score in the output table.
-
 **Test across 5+ seeds** (42–46) and average. Single-seed results are noise.
 
 Without LLM (matches tournament conditions):
 ```bash
-ANTHROPIC_API_KEY= cogames play ...
+ANTHROPIC_API_KEY= cogames play -m machina_1 \
+  -p class=cvc.cvc_policy.CvCPolicy \
+  -c 8 -r none --seed 42
 ```
 
-## Submit
+### 2. Freeplay (`beta-cvc`)
+
+Upload to freeplay to test against real opponents without tournament stakes:
 
 ```bash
 source .venv/bin/activate
 cd cogs/cogames
-cogames upload \
+cogames ship \
   -p class=cvc.cvc_policy.CvCPolicy \
-  -n <policy_name> \
+  -n beta \
   -f cvc -f mettagrid_sdk -f setup_policy.py \
   --setup-script setup_policy.py \
-  --season <season>
+  --season beta-cvc \
+  --skip-validation
 ```
 
-Policy name: `beta`. Season: `beta-teams-tiny-fixed`.
+Check freeplay results:
+```bash
+cogames leaderboard beta-cvc --mine
+cogames matches --season beta-cvc
+cogames match-artifacts <match-id>   # get logs from a specific match
+```
 
-Check results: `cogames leaderboard --season <season>`, `cogames matches`, `cogames match-artifacts <match-id>`.
+Freeplay policies qualify via self-play, then play 20 matches against random partners. Use this to validate changes against diverse opponents before committing to tournament.
+
+### 3. Win Tournaments (`beta-teams-tiny-fixed`)
+
+Submit proven improvements to the ranked tournament:
+
+```bash
+cogames ship \
+  -p class=cvc.cvc_policy.CvCPolicy \
+  -n beta \
+  -f cvc -f mettagrid_sdk -f setup_policy.py \
+  --setup-script setup_policy.py \
+  --season beta-teams-tiny-fixed \
+  --skip-validation
+```
+
+Check tournament standings:
+```bash
+cogames leaderboard beta-teams-tiny-fixed --mine
+cogames season progress beta-teams-tiny-fixed
+cogames matches --season beta-teams-tiny-fixed
+```
+
+Tournament format: multi-stage elimination. Policies qualify via self-play, get seeded into teams, teams compete across progressive stages with culling. Final score based on team rank.
+
+### Seasons
+
+| Season | Purpose | Format |
+|--------|---------|--------|
+| `beta-cvc` | **Freeplay** — test against real opponents, low stakes | Self-play qualifier → 20 matches vs random partners |
+| `beta-teams-tiny-fixed` | **Tournament** — ranked competition | Multi-stage elimination, team-based scoring |
 
 ## Game Rules
 
@@ -170,7 +212,7 @@ result = asyncio.run(run_pco_epoch(
 
 Valid GameState API for patches: `gs.hp`, `gs.position`, `gs.step_index`, `gs.role`, `gs.nearest_hub()`, `gs.known_junctions(pred)`, `gs.should_retreat()`, `gs.choose_action(role)`, `gs.miner_action()`, `gs.aligner_action()`, `gs.scrambler_action()`, `gs.move_to_known(entity)`, `gs.explore(role)`, `gs.has_role_gear(role)`, `gs.needs_emergency_mining()`, `gs.team_id()`
 
-## Reference: alpha.0 (scores ~13, tournament leader)
+## Reference: alpha.0 (tournament rival)
 
 The alpha.0 agent lives at `metta-ai/cogora` (`src/cvc/cogent/player_cog/policy/`). Key differences from our agent:
 
@@ -180,8 +222,6 @@ The alpha.0 agent lives at `metta-ai/cogora` (`src/cvc/cogent/player_cog/policy/
 - **Enemy AOE radius 20** for retreat detection (we use `JUNCTION_AOE_RANGE = 4`)
 - **Cyborg architecture**: LLM reviews runtime telemetry and adjusts strategy directives. Detects stagnation (oscillation, target fixation, resource bias mismatch) and rewrites policy to break out
 - Same pressure budget phases, same constants in helpers/types.py, same heart batching targets
-
-The biggest gaps are likely: (1) our retreat is less conservative, (2) we don't track scramble hotspots, (3) we don't use LLM for stagnation detection in tournament.
 
 ## Strategies
 
@@ -222,7 +262,7 @@ The biggest gaps are likely: (1) our retreat is less conservative, (2) we don't 
 1. **No shared state between agents.** Each agent gets its own WorldModel, claims dict, junctions dict. Sharing causes 0.00 score
 2. **One change at a time.** Isolate what works vs what breaks
 3. **Test across 5+ seeds.** A single seed is meaningless
-4. **Local scores lie.** Self-play inflates scores. Submit and check tournament
+4. **Local scores lie.** Self-play inflates scores. Validate in freeplay before tournament
 5. **Revert on regression.** If average score drops, revert immediately
 6. **Tournament has action timeout.** Keep per-step computation fast
 
@@ -230,4 +270,10 @@ The biggest gaps are likely: (1) our retreat is less conservative, (2) we don't 
 
 Games write experience to `/tmp/coglet_learnings/{game_id}.json` containing snapshots, LLM logs, and per-agent state. Use these for PCO epochs.
 
-Check tournament: `cogames leaderboard --season <season>`, `cogames matches`, `cogames match-artifacts <match-id>`.
+```bash
+cogames leaderboard beta-cvc --mine              # freeplay standings
+cogames leaderboard beta-teams-tiny-fixed --mine  # tournament standings
+cogames matches --season <season>                 # recent matches
+cogames match-artifacts <match-id>                # logs from a match
+cogames season progress <season>                  # stage progression
+```
