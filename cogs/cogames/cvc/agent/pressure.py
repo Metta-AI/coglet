@@ -35,30 +35,6 @@ class PressureMixin:
 
     def _desired_role(self, state: MettagridState, *, objective: str | None = None) -> str:
         aligner_budget, scrambler_budget = self._pressure_budgets(state, objective=objective)
-
-        # In mixed-policy games, observe teammate roles and adjust.
-        # Only reduce our budget if we see MORE of a role than our budget
-        # expects (indicating the other policy is also assigning that role).
-        step = state.step or self._step_index
-        if step >= 200 and state.team_summary is not None:
-            my_entity_id = str(state.self_state.attributes.get("entity_id", ""))
-            observed_aligners = 0
-            observed_scramblers = 0
-            for member in state.team_summary.members:
-                if member.entity_id == my_entity_id:
-                    continue
-                if member.role == "aligner":
-                    observed_aligners += 1
-                elif member.role == "scrambler":
-                    observed_scramblers += 1
-
-            excess_aligners = max(observed_aligners - aligner_budget, 0)
-            excess_scramblers = max(observed_scramblers - scrambler_budget, 0)
-            if excess_aligners > 0:
-                aligner_budget = max(aligner_budget - excess_aligners, 1)
-            if excess_scramblers > 0:
-                scrambler_budget = max(scrambler_budget - excess_scramblers, 0)
-
         scrambler_ids = set(_SCRAMBLER_PRIORITY[:scrambler_budget])
         aligner_ids = []
         for agent_id in _ALIGNER_PRIORITY:
