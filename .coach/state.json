@@ -1,26 +1,15 @@
 {
-  "last_session": "20260331-220000",
+  "last_session": "20260331-030000",
   "best_score": 10.63,
-  "total_sessions": 41,
+  "total_sessions": 45,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 10.63,
   "tournament_rank": 1,
   "tournament_top": 10.63,
-  "latest_submission": "beta:v65",
-  "freeplay_submission": "beta:v64",
-  "key_fix": "Reduced late-game scramblers from 2 to 1 (extra aligner). Self-play +216%. Submitted v64/v65.",
-  "approach_stats": {
-    "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
-    "design": {"attempts": 17, "improvements": 10, "last_used": "20260331-220000"}
-  },
-  "freeplay_experiments": {
-    "v28_enemy_avoidance": {"score": 1.21, "result": "regression"},
-    "v40_no_scramblers": {"score": 1.24, "result": "regression"},
-    "v42_enhanced_llm": {"score": 1.64, "result": "neutral"},
-    "v56_heart_margin": {"score": 1.72, "result": "neutral"},
-    "v60_no_teammate_penalty": {"score": 1.12, "result": "regression"},
-    "v64_one_scrambler": {"score": "pending", "result": "pending"},
-    "best_v15": {"score": 1.81, "result": "baseline_best"}
-  }
+  "freeplay_best": 1.67,
+  "freeplay_season": "beta-cvc",
+  "latest_submission": "beta:v18",
+  "status": "plateau",
+  "key_fix": "freeplay plateau at ~1.3 for 7 sessions. tournament tied #1. recommend pausing."
 }
