@@ -57,15 +57,9 @@ Coach (Claude Code) → PlayerCoglet (GitLet) → PolicyCoglet (ProgLet + LLM br
 ```bash
 # Run tests
 PYTHONPATH=src python -m pytest tests/ -v
-
-# Play locally
-cogames play -m machina_1 -p class=cvc.cvc_policy.CogletPolicy -c 8 --seed 42
-
-# Upload to tournament
-cogames upload -p class=cvc.cvc_policy.CogletPolicy -n coglet-v0 \
-  -f cvc -f mettagrid_sdk -f setup_policy.py \
-  --setup-script setup_policy.py --season beta-cvc
 ```
+
+See [IMPROVE.md](IMPROVE.md) for CvC agent setup, eval, and submit commands.
 
 ### Docs
 
