@@ -1,17 +1,18 @@
 # Coach TODO
 
 ## Current Priorities
-- [ ] Wait for v19 tournament results (agent_id fix should be transformative)
-- [ ] Test with 1v1 mode (`cogames run -c 16`) going forward, not just scrimmage
-- [ ] Investigate removing scramblers for cooperative scoring (both teams' scramblers reduce total junctions)
+- [ ] Wait for v25 tournament results (no scramblers should improve cooperative scoring)
+- [ ] Test with 1v1 mode (`cogames run -c 16 -p A -p B`) going forward, not just scrimmage
+- [ ] Investigate why seed 44 frequently collapses to 0.00 — map topology issue?
 
 ## Improvement Ideas
-- [ ] Remove scramblers entirely for cooperative scoring (test in 1v1 mode)
 - [ ] Map topology analysis — understand wall patterns to improve exploration
 - [ ] Dynamic role switching — let agents switch roles based on game state
 - [ ] LLM brain integration — use analyze prompt for real-time strategic adaptation
-- [ ] PCO evolution — run PCO epochs to evolve program table
+- [ ] PCO evolution — run PCO epochs to evolve program table (need ANTHROPIC_API_KEY)
 - [ ] Better junction discovery — agents may miss junctions behind walls
+- [ ] Tune early game: start aligners sooner (step 0 instead of step 30?)
+- [ ] Add defensive re-alignment — prioritize recapturing recently-scrambled friendly junctions
 
 ## Dead Ends (Don't Retry)
 - [x] Retreat threshold tuning — always trades deaths for score regression
@@ -19,7 +20,6 @@
 - [x] Outer explore ring at manhattan 35 — sends agents too far, they die
 - [x] Remove alignment network filter — required by game mechanics
 - [x] Expand alignment range +5 — causes targeting unreachable junctions
-- [x] Remove scramblers entirely (SCRIMMAGE only) — confirmed twice in self-play, scramblers help
 - [x] Resource-aware pressure budgets — too aggressive scaling
 - [x] Spread miner resource bias — least-available targeting is better
 - [x] Reorder aligner explore offsets — existing order works better
@@ -27,11 +27,15 @@
 - [x] More aligners (6) / fewer miners (2) — economy can't sustain
 - [x] Wider A* margin (12→20) — slower computation wastes ticks
 - [x] Emergency mining threshold 50 or 10 — hurts high-scoring seeds more than helps low ones
+- [x] Hotspot tracking (scramble history + penalty 8.0) — agents avoid most valuable contested junctions
+- [x] Wider enemy AOE for retreat (radius 10 or 20) — over-retreating wastes ticks, seed collapses
+- [x] Revert to hub-only scoring (remove network_dist) — chain-aware scoring IS helping
 
 ## Testing Notes
 - **ALWAYS test 1v1 with `cogames run -c 16 -p A -p B`** not just scrimmage
 - Scrimmage (`-c 8`) is self-play where one policy controls all agents — inflated scores
-- Previous "remove scramblers" test was scrimmage only — retest in 1v1 for cooperative scoring
+- Previous "remove scramblers" test was scrimmage only — retested in 1v1 and confirmed improvement
+- Seed 44 is unreliable (frequently collapses to 0.00) — include but don't base decisions on it alone
 
 ## Done
 - [x] Establish baseline: 1.31 on machina_1 (seed 42)
@@ -47,3 +51,4 @@
 - [x] Session 11: exhaustive parameter search — no improvement found, v18 is well-tuned
 - [x] Session 12: emergency mining threshold tests — no improvement found
 - [x] Session 13: CRITICAL FIX — agent_id normalization (% 8) for tournament mode (1v1 avg 18.38, v19)
+- [x] Session 36: removed scramblers for cooperative scoring (+10% 1v1, +12% scrimmage, v25)
