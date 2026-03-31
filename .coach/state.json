@@ -1,11 +1,11 @@
 {
-  "last_session": "20260330-283000",
-  "best_score": 5.18,
-  "total_sessions": 31,
+  "last_session": "20260331-000000",
+  "best_score": 6.13,
+  "total_sessions": 33,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
-  "tournament_best": 4.88,
-  "tournament_top": 11.58,
+  "tournament_best": 6.13,
+  "tournament_top": 13.31,
   "latest_submission": "beta:v8",
-  "key_fix": "tournament RESET — fresh start, v7/v8 competing from stage 1 with all players"
+  "key_fix": "v8 scoring 6.13 in stage 3 — new best! critic fix + retreat improvement + learner API docs"
 }
