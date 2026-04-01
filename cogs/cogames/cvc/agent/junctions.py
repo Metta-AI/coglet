@@ -15,7 +15,8 @@ if TYPE_CHECKING:
     from cvc.agent.world_model import WorldModel
 
 _HUB_OFFSETS = COGSGUARD_BOOTSTRAP_HUB_OFFSETS
-_JUNCTION_MEMORY_STEPS = 1000
+_JUNCTION_MEMORY_STEPS = 800
+_DEPOT_RECENCY_STEPS = 200
 
 
 class JunctionMixin:
@@ -57,7 +58,12 @@ class JunctionMixin:
                 or (entity.entity_type == "junction" and entity.owner == team)
             ),
         )
-        shared_friendly = self._junction_entities(state, predicate=lambda entity: entity.owner == team)
+        # Only trust junction memory for depots if recently seen (avoid stale friendly status)
+        step = state.step or self._step_index
+        shared_friendly = self._junction_entities(
+            state,
+            predicate=lambda entity: entity.owner == team and step - entity.last_seen_step <= _DEPOT_RECENCY_STEPS,
+        )
         if shared_friendly:
             shared_nearest = min(
                 shared_friendly,
