@@ -9,9 +9,9 @@
   "tournament_top": 10.00,
   "freeplay_best": 1.81,
   "freeplay_season": "beta-cvc",
-  "latest_submission": "beta:v67",
-  "freeplay_submission": "beta:v66",
-  "key_fix": "Alpha.0-style hotspot tracking: deprioritize contested junctions (weight 8.0, capped at 3). Self-play +49.5%.",
+  "latest_submission": "beta:v69",
+  "freeplay_submission": "beta:v68",
+  "key_fix": "Resubmitted after season reset: v68 (freeplay), v69 (tournament). Includes 1-scrambler + hotspot tracking.",
   "approach_stats": {
     "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
     "design": {"attempts": 18, "improvements": 11, "last_used": "20260331-233000"}
@@ -24,6 +24,7 @@
     "v60_no_teammate_penalty": {"score": 1.12, "result": "regression"},
     "v64_one_scrambler": {"score": "pending", "result": "pending"},
     "v66_hotspot_tracking": {"score": "pending", "result": "pending"},
+    "v68_resubmit": {"score": "pending", "result": "pending"},
     "best_v15": {"score": 1.81, "result": "baseline_best"}
   }
 }
