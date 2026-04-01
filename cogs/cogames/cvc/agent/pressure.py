@@ -15,11 +15,9 @@ if TYPE_CHECKING:
 
 _RETREAT_MARGIN = 15
 _ECONOMY_BOOTSTRAP_ALIGNER_BUDGET = 2
-# Interleaved priority: ensures ANY 4-agent subset gets a balanced role mix.
-# Critical for freeplay where we may control only half the team (e.g. agents
-# 0-3 or 4-7). Old priority (4,5,6,7,...) gave agents 0-3 three miners.
-_ALIGNER_PRIORITY = (0, 4, 1, 5, 2, 6, 3, 7)
-_SCRAMBLER_PRIORITY = (3, 7, 1, 5, 0, 4, 2, 6)
+# Extended to cover all IDs for any team size. First entries preserved for 8-agent.
+_ALIGNER_PRIORITY = (4, 5, 6, 7, 3, 2, 1, 0)
+_SCRAMBLER_PRIORITY = (7, 6, 3, 2, 1, 0)
 
 
 @dataclass(slots=True)
