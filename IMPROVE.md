@@ -312,11 +312,18 @@ The alpha.0 agent lives at `metta-ai/cogora` (`src/cvc/cogent/player_cog/policy/
 - Mid-range scrambler explore offsets — self-play +25% but freeplay 10.75 (regression)
 - Reachable-blocked scramble targeting — self-play +49% but freeplay 10.00-10.88 (regression)
 - enemy_aoe penalty 8.0→4.0 — untested in freeplay, reverted to be safe
+- Shared junction memory between agents — self-play +214% but freeplay 14.23 (regression). Coordination asymmetry with mixed teams
+- Hub defense bonus for scrambler — self-play +11% but freeplay 11.77 (regression)
+- Teammate aligner avoidance penalty (5.0-6.0) — -11% self-play regression
+- Faster unstick 12→8 — freeplay 16.23 (slight regression from 17.02)
 
 ### Critical Learnings
 - **Scrambler is heart-starved**: In self-play with (4,1) budget, the scrambler has 0 hearts for most of the game because 4 aligners consume all team hearts first. The scrambler is effectively useless in self-play, but still matters in freeplay (even occasional scrambles deny opponent)
 - **Junction collapse pattern**: Peak at ~7 friendly junctions (step 500), collapse to 0-2 by step 5000 in self-play. Enemy team scrambles faster than we rebuild
 - **Early game is critical**: Most score comes from first 500-2000 steps. Late game contributes little
+- **Shared state hurts freeplay**: Sharing junction memory/claims between agents helps self-play (+214%) but hurts freeplay (-16%). In mixed teams, coordination within our agents creates asymmetry vs uncoordinated teammates
+- **ALL post-v84 scoring changes hurt freeplay**: v84 has been freeplay best (17.02) for 30+ sessions. Every heuristic tweak that improved self-play regressed in freeplay. The two are weakly/negatively correlated
+- **Actual game constants**: HUB_ALIGN_DISTANCE=25, JUNCTION_ALIGN_DISTANCE=15, JUNCTION_AOE_RANGE=10 (not 3/4 as originally documented)
 - **LLM may be the structural gap**: Alpha.0's cyborg architecture with LLM stagnation detection is likely the key differentiator. Our LLM only adjusts resource_bias. Enhanced to provide role/objective guidance in v42
 
 ## Rules & Constraints
