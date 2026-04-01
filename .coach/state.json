@@ -1,7 +1,7 @@
 {
-  "last_session": "20260401-103000",
+  "last_session": "20260401-110000",
   "best_score": 21.63,
-  "total_sessions": 63,
+  "total_sessions": 64,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 8.84,
@@ -11,16 +11,14 @@
   "freeplay_season": "beta-cvc",
   "latest_submission": "beta:v114",
   "freeplay_submission": "beta:v113",
-  "key_fix": "Waiting on v113 (shared junctions + v84 params). v105 regressed to 9.20 but explained by co-submitted retreat/targeting changes.",
+  "key_fix": "Monitoring. v113 at 11.61 (3 matches, too early). v105 settled at 14.23 (20 matches). Updated IMPROVE.md.",
   "approach_stats": {
     "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
     "design": {"attempts": 35, "improvements": 22, "last_used": "20260401-100000"}
   },
   "freeplay_experiments": {
-    "v113_shared_junctions_v84_params": {"score": "pending", "result": "qualifying"},
-    "v105_shared_junctions": {"score": 9.20, "result": "regression_but_see_notes"},
-    "v102_retreat_18_no_shared": {"score": 7.78, "result": "regression"},
-    "v105_vs_v102_delta": {"score": 1.42, "result": "shared_junctions_helped"},
+    "v113_shared_junctions_v84_params": {"score": 11.61, "result": "early_3_matches"},
+    "v105_shared_junctions_bad_params": {"score": 14.23, "result": "below_v84"},
     "best_v84": {"score": 17.02, "result": "current_best"}
   }
 }
