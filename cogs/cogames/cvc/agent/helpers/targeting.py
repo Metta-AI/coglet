@@ -145,8 +145,13 @@ def scramble_target_score(
             1 for f in friendly_junctions if manhattan(candidate.position, f.position) <= _JUNCTION_ALIGN_DISTANCE
         )
         threat_bonus = threatened * 10.0
+    # Prioritize enemy junctions within hub alignment range — these directly block our core territory
+    hub_defense_bonus = 0.0
+    hub_dist = manhattan(hub_position, candidate.position)
+    if hub_dist <= _HUB_ALIGN_DISTANCE:
+        hub_defense_bonus = (_HUB_ALIGN_DISTANCE - hub_dist) * 0.5
     return (
-        distance - blocked_neutrals * 6.0 - corner_pressure - threat_bonus,
+        distance - blocked_neutrals * 6.0 - corner_pressure - threat_bonus - hub_defense_bonus,
         -float(blocked_neutrals),
     )
 
