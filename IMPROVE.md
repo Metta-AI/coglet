@@ -316,6 +316,8 @@ The alpha.0 agent lives at `metta-ai/cogora` (`src/cvc/cogent/player_cog/policy/
 - Hub defense bonus for scrambler — self-play +11% but freeplay 11.77 (regression)
 - Teammate aligner avoidance penalty (5.0-6.0) — -11% self-play regression
 - Faster unstick 12→8 — freeplay 16.23 (slight regression from 17.02)
+- Interleaved role priorities (0,4,1,5,2,6,3,7) — freeplay 9.77 (-43% regression!). Old clustered priorities (4,5,6,7,...) are better
+- Scrambler friendly_junctions in target-switch scoring — contributes to regression when combined with other changes
 
 ### Critical Learnings
 - **Scrambler is heart-starved**: In self-play with (4,1) budget, the scrambler has 0 hearts for most of the game because 4 aligners consume all team hearts first. The scrambler is effectively useless in self-play, but still matters in freeplay (even occasional scrambles deny opponent)
