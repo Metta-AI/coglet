@@ -1,7 +1,7 @@
 {
-  "last_session": "20260401-020000",
+  "last_session": "20260401-024500",
   "best_score": 10.00,
-  "total_sessions": 50,
+  "total_sessions": 51,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 10.00,
@@ -11,10 +11,10 @@
   "freeplay_season": "beta-cvc",
   "latest_submission": "beta:v81",
   "freeplay_submission": "beta:v80",
-  "key_fix": "Extractor memory 600→800 steps. Cumulative +37.9% vs baseline.",
+  "key_fix": "No improvement this session. v80/v81 remains best (cumulative +37.9%).",
   "approach_stats": {
     "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
-    "design": {"attempts": 22, "improvements": 14, "last_used": "20260401-020000"}
+    "design": {"attempts": 23, "improvements": 14, "last_used": "20260401-024500"}
   },
   "freeplay_experiments": {
     "v76_hub_hotspot_discount": {"score": "pending", "result": "pending"},

@@ -39,6 +39,7 @@
 - [x] Aggressive adaptive role allocation — killed 1v1 scores (excess_aligners math counts ALL teammates)
 - [x] Pure network-dist scoring — agents venture too far and die (-31% avg)
 - [x] Removing teammate penalty (v60) — hurt freeplay (1.12 vs 1.81)
+- [x] Aligner refill before explore — -29.2% regression, aligners waste time at hub
 - [x] Scrambler heart batch 2→1 — -34.1% regression, wastes hearts
 - [x] Early pressure ramp (step 200) — economy can't sustain with only 2 miners, -8.8%
 

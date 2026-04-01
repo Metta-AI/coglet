@@ -95,6 +95,7 @@ class RolesMixin:
             if depot is not None:
                 return self._move_to_known(state, depot, summary="deposit_cargo", vibe="change_vibe_aligner")  # type: ignore[attr-defined]
 
+
         return self._explore_action(state, role="aligner", summary="find_neutral_junction")  # type: ignore[attr-defined]
 
     def _scrambler_action(self, state: MettagridState) -> tuple[Action, str]:
