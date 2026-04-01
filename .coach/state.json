@@ -1,29 +1,26 @@
 {
-  "last_session": "20260401-070000",
-  "best_score": 23.51,
-  "total_sessions": 67,
+  "last_session": "20260401-041300",
+  "best_score": 14.31,
+  "total_sessions": 68,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 8.84,
   "tournament_rank": 1,
   "tournament_top": 8.84,
-  "freeplay_best": 17.02,
+  "freeplay_best": 14.31,
   "freeplay_season": "beta-cvc",
   "latest_submission": "beta:v132",
   "freeplay_submission": "beta:v131",
-  "key_fix": "Reverted ALL changes — interleaved priorities hurt freeplay -43%. Submitted exact v84 code as control.",
+  "key_fix": "Discovered shared state bug inflated self-play. Environment changed (v84 can't reproduce 17.02). True baseline: 14.31.",
   "approach_stats": {
     "pco": {"attempts": 5, "improvements": 1, "last_used": "20260401-070000"},
-    "design": {"attempts": 38, "improvements": 24, "last_used": "20260401-070000"}
+    "design": {"attempts": 39, "improvements": 24, "last_used": "20260401-041300"}
   },
   "freeplay_experiments": {
-    "v131_exact_v84": {"score": "pending", "result": "control_test"},
+    "v131_exact_v84": {"score": 14.31, "result": "true_baseline"},
+    "v128_interleaved_no_shared": {"score": 10.43, "result": "regression"},
     "v126_interleaved_only": {"score": 9.77, "result": "regression_-43%"},
     "v121_interleaved_all": {"score": 12.97, "result": "regression"},
-    "v120_teammate_closer": {"score": 13.49, "result": "regression"},
-    "v117_hub_defense": {"score": 11.77, "result": "regression"},
-    "v115_scrambler_bugfix": {"score": 12.65, "result": "regression"},
-    "v105_shared_junctions": {"score": 14.23, "result": "regression"},
-    "best_v84": {"score": 17.02, "result": "current_best"}
+    "best_v131": {"score": 14.31, "result": "current_best"}
   }
 }
