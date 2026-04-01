@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from cvc.agent.world_model import WorldModel
 
 _HUB_OFFSETS = COGSGUARD_BOOTSTRAP_HUB_OFFSETS
-_JUNCTION_MEMORY_STEPS = 800
+_JUNCTION_MEMORY_STEPS = 1000
 
 
 class JunctionMixin:
