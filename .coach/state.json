@@ -1,26 +1,27 @@
 {
-  "last_session": "20260401-041300",
-  "best_score": 14.31,
-  "total_sessions": 68,
+  "last_session": "20260401-070000",
+  "best_score": 23.51,
+  "total_sessions": 67,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 8.84,
   "tournament_rank": 1,
   "tournament_top": 8.84,
-  "freeplay_best": 14.31,
+  "freeplay_best": 14.35,
   "freeplay_season": "beta-cvc",
-  "latest_submission": "beta:v132",
-  "freeplay_submission": "beta:v131",
-  "key_fix": "Discovered shared state bug inflated self-play. Environment changed (v84 can't reproduce 17.02). True baseline: 14.31.",
+  "latest_submission": "beta:v136",
+  "freeplay_submission": "beta:v135",
+  "key_fix": "Depot recency fix (neutral). True baseline: ~14.3. v84's 17.02 no longer reproducible (meta shifted).",
   "approach_stats": {
     "pco": {"attempts": 5, "improvements": 1, "last_used": "20260401-070000"},
-    "design": {"attempts": 39, "improvements": 24, "last_used": "20260401-041300"}
+    "design": {"attempts": 40, "improvements": 24, "last_used": "20260401-070000"}
   },
   "freeplay_experiments": {
+    "v135_depot_recency": {"score": 14.35, "result": "neutral_(+0.3%)"},
+    "v133_jmem_1000": {"score": 11.88, "result": "regression_-17%"},
     "v131_exact_v84": {"score": 14.31, "result": "true_baseline"},
-    "v128_interleaved_no_shared": {"score": 10.43, "result": "regression"},
-    "v126_interleaved_only": {"score": 9.77, "result": "regression_-43%"},
-    "v121_interleaved_all": {"score": 12.97, "result": "regression"},
-    "best_v131": {"score": 14.31, "result": "current_best"}
+    "v126_interleaved_only": {"score": 9.77, "result": "regression_-32%"},
+    "v121_interleaved_all": {"score": 12.97, "result": "regression_-9%"},
+    "best_v135": {"score": 14.35, "result": "current_best"}
   }
 }
