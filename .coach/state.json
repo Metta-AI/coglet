@@ -1,26 +1,28 @@
 {
-  "last_session": "20260401-093000",
+  "last_session": "20260401-100000",
   "best_score": 21.63,
-  "total_sessions": 61,
+  "total_sessions": 62,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 8.84,
   "tournament_rank": 1,
   "tournament_top": 8.84,
-  "freeplay_best": 17.02,
+  "freeplay_best": 19.43,
   "freeplay_season": "beta-cvc",
-  "latest_submission": "beta:v106",
-  "freeplay_submission": "beta:v105",
-  "key_fix": "Re-enabled shared junction memory + claims between agents. Self-play +214% (biggest improvement ever).",
+  "latest_submission": "beta:v114",
+  "freeplay_submission": "beta:v113",
+  "key_fix": "Shared junctions + pure v84 params. v105 scored 19.43 (#2, 1 match). Cleaned up to v84 params for v113.",
   "approach_stats": {
     "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
-    "design": {"attempts": 34, "improvements": 21, "last_used": "20260401-093000"}
+    "design": {"attempts": 35, "improvements": 22, "last_used": "20260401-100000"}
   },
   "freeplay_experiments": {
-    "v105_shared_junctions": {"score": "pending", "result": "pending"},
-    "v103_retreat_20": {"score": "pending", "result": "pending"},
-    "v102_retreat_18": {"score": "pending", "result": "pending"},
-    "v100_reachable_blocked": {"score": "pending", "result": "pending"},
-    "best_v84": {"score": 17.02, "result": "current_best"}
+    "v113_shared_junctions_v84_params": {"score": "pending", "result": "pending"},
+    "v105_shared_junctions": {"score": 19.43, "result": "improvement_1_match"},
+    "v103_retreat_20": {"score": 9.99, "result": "regression"},
+    "v102_retreat_18": {"score": 7.78, "result": "regression"},
+    "v100_reachable_blocked": {"score": 10.88, "result": "regression"},
+    "v94_reachable_blocked_explore": {"score": 10.00, "result": "regression"},
+    "best_v84": {"score": 17.02, "result": "previous_best"}
   }
 }

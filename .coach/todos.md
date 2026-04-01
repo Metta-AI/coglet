@@ -1,10 +1,10 @@
 # Coach TODO
 
 ## Current Priorities
-- [ ] Monitor v105 freeplay (shared junctions — HIGHEST PRIORITY)
-- [ ] Monitor v102/v103 freeplay (retreat margin A/B test)
-- [ ] If v105 works: try combining with retreat margin 18-20
-- [ ] Update IMPROVE.md constants: JUNCTION_ALIGN_DISTANCE=15 (not 3), JUNCTION_AOE_RANGE=10 (not 4)
+- [ ] Monitor v113 freeplay (shared junctions + pure v84 params — BEST CANDIDATE)
+- [ ] Monitor v105 freeplay (shared junctions, 19.43 after 1 match — needs more matches)
+- [ ] If v113 beats alpha.0: submit to tournament aggressively
+- [ ] Update IMPROVE.md with shared junctions finding
 
 ## Improvement Ideas
 - [ ] Map topology analysis — understand wall patterns to improve exploration
@@ -47,6 +47,10 @@
 - [x] Expansion bonus cap 30→40 — self-play +16.4% but freeplay 9.31 vs 17.02 baseline
 - [x] Network bonus 0.5→2.0 — self-play +50.9% but freeplay 10.19 vs 17.02 baseline
 - [x] Early pressure 2→3 aligners — self-play +6.4% but untested/likely regression
+- [x] Reachable-blocked scramble targeting — self-play +49% but freeplay 10.88/10.00 (regression)
+- [x] RETREAT_MARGIN=18 — freeplay 7.78 (big regression)
+- [x] RETREAT_MARGIN=20 — freeplay 9.99 (regression)
+- [x] enemy_aoe penalty 8.0→4.0 — concurrent session, untested but reverted to be safe
 
 ## Testing Notes
 - **ALWAYS test 1v1 with `cogames run -c 16 -p A -p B`** not just scrimmage

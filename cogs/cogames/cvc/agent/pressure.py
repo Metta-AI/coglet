@@ -13,7 +13,7 @@ from cvc.agent.helpers import KnownEntity
 if TYPE_CHECKING:
     from cvc.agent.world_model import WorldModel
 
-_RETREAT_MARGIN = 18
+_RETREAT_MARGIN = 15
 _ECONOMY_BOOTSTRAP_ALIGNER_BUDGET = 2
 # Extended to cover all IDs for any team size. First entries preserved for 8-agent.
 _ALIGNER_PRIORITY = (4, 5, 6, 7, 3, 2, 1, 0)
