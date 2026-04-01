@@ -1,7 +1,7 @@
 {
-  "last_session": "20260401-070000",
-  "best_score": 23.51,
-  "total_sessions": 67,
+  "last_session": "20260401-090000",
+  "best_score": 14.35,
+  "total_sessions": 68,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 8.84,
@@ -9,19 +9,20 @@
   "tournament_top": 8.84,
   "freeplay_best": 14.35,
   "freeplay_season": "beta-cvc",
-  "latest_submission": "beta:v136",
+  "latest_submission": "beta:v139",
   "freeplay_submission": "beta:v135",
-  "key_fix": "Depot recency fix (neutral). True baseline: ~14.3. v84's 17.02 no longer reproducible (meta shifted).",
+  "key_fix": "All economy/pressure tweaks regress. v135 (v84+depot_recency) = best at 14.35. Gap to alpha.0 = 6.76.",
   "approach_stats": {
     "pco": {"attempts": 5, "improvements": 1, "last_used": "20260401-070000"},
-    "design": {"attempts": 40, "improvements": 24, "last_used": "20260401-070000"}
+    "design": {"attempts": 43, "improvements": 24, "last_used": "20260401-090000"}
   },
   "freeplay_experiments": {
-    "v135_depot_recency": {"score": 14.35, "result": "neutral_(+0.3%)"},
+    "v139_late_pressure_5": {"score": 8.94, "result": "regression_-37%"},
+    "v138_midgame_pressure_4": {"score": 12.03, "result": "regression_-16%"},
+    "v137_early_deposit_8": {"score": 11.81, "result": "regression_-17%"},
+    "v135_depot_recency": {"score": 14.35, "result": "current_best"},
     "v133_jmem_1000": {"score": 11.88, "result": "regression_-17%"},
-    "v131_exact_v84": {"score": 14.31, "result": "true_baseline"},
-    "v126_interleaved_only": {"score": 9.77, "result": "regression_-32%"},
-    "v121_interleaved_all": {"score": 12.97, "result": "regression_-9%"},
-    "best_v135": {"score": 14.35, "result": "current_best"}
+    "v131_exact_v84": {"score": 14.31, "result": "baseline"},
+    "v126_interleaved": {"score": 9.77, "result": "regression_-32%"}
   }
 }
