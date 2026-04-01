@@ -1,7 +1,7 @@
 {
-  "last_session": "20260401-041300",
+  "last_session": "20260401-070000",
   "best_score": 23.51,
-  "total_sessions": 66,
+  "total_sessions": 67,
   "policy_name": "beta",
   "season": "beta-teams-tiny-fixed",
   "tournament_best": 8.84,
@@ -9,18 +9,20 @@
   "tournament_top": 8.84,
   "freeplay_best": 17.02,
   "freeplay_season": "beta-cvc",
-  "latest_submission": "beta:v122",
-  "freeplay_submission": "beta:v121",
-  "key_fix": "BREAKTHROUGH: Interleaved role priorities (+217% self-play). Old priority gave agents 0-3 three miners. Interleaved ensures balanced roles in any 4-agent subset.",
+  "latest_submission": "beta:v127",
+  "freeplay_submission": "beta:v126",
+  "key_fix": "Reverted shared junctions + hub defense. v84 base + interleaved priorities + scrambler bugfix.",
   "approach_stats": {
-    "pco": {"attempts": 4, "improvements": 1, "last_used": "20260329-000000"},
-    "design": {"attempts": 37, "improvements": 24, "last_used": "20260401-041300"}
+    "pco": {"attempts": 5, "improvements": 1, "last_used": "20260401-070000"},
+    "design": {"attempts": 38, "improvements": 24, "last_used": "20260401-070000"}
   },
   "freeplay_experiments": {
-    "v121_interleaved_priorities": {"score": "pending", "result": "pending"},
-    "v115_scrambler_bugfix": {"score": "pending", "result": "pending"},
-    "v117_hub_defense": {"score": "pending", "result": "pending"},
-    "v113_shared_junctions_v84_params": {"score": 11.61, "result": "early_3_matches"},
+    "v126_interleaved_only": {"score": "pending", "result": "pending"},
+    "v121_interleaved_all": {"score": "pending", "result": "pending"},
+    "v120_teammate_closer": {"score": 13.49, "result": "regression"},
+    "v117_hub_defense": {"score": 11.77, "result": "regression"},
+    "v115_scrambler_bugfix": {"score": 12.65, "result": "regression"},
+    "v105_shared_junctions": {"score": 14.23, "result": "regression"},
     "best_v84": {"score": 17.02, "result": "current_best"}
   }
 }
