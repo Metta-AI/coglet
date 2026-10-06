@@ -69,7 +69,10 @@ CogletPolicy (MultiAgentPolicy)
             └─ Snapshot logging (periodic state capture)
 ```
 
-This follows the official cogames agent pattern (see `cogames-agents/docs/creating-scripted-agents.md`):
+The policy uses the following Cogames interfaces. The previously cited
+`cogames-agents/docs/creating-scripted-agents.md` is not included in this checkout.
+Check the installed SDK definitions and the imports in `cvc_policy.py` before
+changing the integration:
 - **`MultiAgentPolicy`**: Top-level wrapper, creates per-agent policies
 - **`StatefulPolicyImpl[S]`**: Per-agent logic, implements `step_with_state(obs, state) -> (Action, state)`
 - **`StatefulAgentPolicy[S]`**: Framework glue, wraps impl into AgentPolicy with state lifecycle
